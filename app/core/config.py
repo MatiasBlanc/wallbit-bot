@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     DCA_CHECK_INTERVAL_MINUTES: int = Field(default=1, ge=1, description="Interval to check due DCA rules")
     ORDER_EXPIRY_HOURS: int = Field(default=24, ge=1, description="Hours until an unconfirmed pending order expires")
 
+    @field_validator("MULTI_USER_ENABLED")
+    @classmethod
+    def reject_multi_user_mode(cls, value: bool) -> bool:
+        """Impide activar por entorno un modo fuera del producto soportado."""
+        if value:
+            raise ValueError("Wallbit Assistant Bot solo admite una instancia de usuario único.")
+        return value
+
     @field_validator("WALLBIT_PLAN")
     @classmethod
     def validate_wallbit_plan(cls, value: str) -> str:

@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TRADING_ENABLED: "false"
+      AI_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Ruff
+        run: ruff check .
+      - name: Type check changed typed modules
+        run: >-
+          mypy --follow-imports=skip
+          app/__main__.py app/modules/advisor app/shared/presentation
+          app/infrastructure/wallbit/client.py app/infrastructure/wallbit/exceptions.py
+          app/modules/orders/service.py
+      - name: Tests
+        run: pytest -q
