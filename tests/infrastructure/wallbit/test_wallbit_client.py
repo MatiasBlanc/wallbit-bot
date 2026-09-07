@@ -13,6 +13,7 @@ from app.infrastructure.wallbit.exceptions import (
     InvalidTickerError,
     WallbitAuthenticationError,
     WallbitRateLimitError,
+    WallbitUnavailableError,
     WallbitUnexpectedResponseError,
 )
 from app.infrastructure.wallbit.schemas.orders import TradeRequest
@@ -79,6 +80,18 @@ async def test_wallbit_client_429_rate_limit():
         with pytest.raises(WallbitRateLimitError) as exc_info:
             await client.create_trade(TradeRequest(symbol="VOO", amount=50.0))
         assert exc_info.value.retry_after == 10
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_wallbit_client_maps_timeout_to_unavailable(monkeypatch):
+    client = WallbitClient(base_url="https://api.wallbit.io", api_key="dummy_key")
+    monkeypatch.setattr("app.infrastructure.wallbit.client.asyncio.sleep", AsyncMock())
+    with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_req:
+        mock_req.side_effect = httpx.ReadTimeout("timeout")
+        with pytest.raises(WallbitUnavailableError):
+            await client.get_checking_balance()
+        assert mock_req.await_count == 3
     await client.close()
 
 

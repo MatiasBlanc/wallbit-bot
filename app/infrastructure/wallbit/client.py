@@ -199,7 +199,7 @@ class WallbitClient:
                     self._handle_error_response(response)
                 return response
 
-            except httpx.NetworkError as exc:
+            except (httpx.NetworkError, httpx.TimeoutException) as exc:
                 if attempt < max_retries and is_idempotent:
                     delay = 2 ** attempt
                     logger.warning(
