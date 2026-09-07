@@ -4,6 +4,7 @@ import logging
 import re
 
 from app.core.config import settings
+from app.core.identity import current_identity
 
 
 class SecretSanitizingFilter(logging.Filter):
@@ -56,6 +57,36 @@ class SecretSanitizingFilter(logging.Filter):
         return True
 
 
+class SecretSanitizingFormatter(logging.Formatter):
+    """Sanitiza el texto final, incluidos tracebacks y objetos anidados."""
+
+    def __init__(self, delegate: logging.Formatter, secrets: list[str]) -> None:
+        super().__init__()
+        self.delegate = delegate
+        self.sanitizer = SecretSanitizingFilter(secrets)
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Formatea y elimina secretos antes de escribir en el destino.
+
+        Args:
+            record: Registro original, que puede incluir una excepción.
+
+        Returns:
+            Texto sin secretos globales ni la credencial de la tarea actual.
+        """
+        text = self.delegate.format(record)
+        identity = current_identity.get()
+        secrets = self.sanitizer.secrets.copy()
+        if identity is not None:
+            secrets.append(identity.api_key.get_secret_value())
+        for secret in secrets:
+            if secret:
+                text = text.replace(secret, "***REDACTED***")
+        for pattern, replacement in self.sanitizer.patterns:
+            text = pattern.sub(replacement, text)
+        return text
+
+
 def setup_logging() -> None:
     """Configures application-wide logging."""
     log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
@@ -75,11 +106,18 @@ def setup_logging() -> None:
         root_logger.addHandler(handler)
 
     # Add secret sanitizing filter
-    secrets_to_scrub = [settings.TELEGRAM_BOT_TOKEN, settings.WALLBIT_API_KEY]
+    secrets_to_scrub = [
+        settings.TELEGRAM_BOT_TOKEN, settings.WALLBIT_API_KEY,
+        settings.CREDENTIAL_ENCRYPTION_KEY.get_secret_value(),
+    ]
+    if settings.AI_API_KEY:
+        secrets_to_scrub.append(settings.AI_API_KEY)
     sanitizing_filter = SecretSanitizingFilter(secrets=secrets_to_scrub)
 
     for h in root_logger.handlers:
         h.addFilter(sanitizing_filter)
+        if not isinstance(h.formatter, SecretSanitizingFormatter):
+            h.setFormatter(SecretSanitizingFormatter(h.formatter or logging.Formatter(), secrets_to_scrub))
 
     # Silence noisy third-party loggers
     logging.getLogger("httpx").setLevel(logging.WARNING)

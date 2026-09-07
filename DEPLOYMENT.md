@@ -32,11 +32,17 @@ Configura `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_ID`, `WALLBIT_API_KEY` y 
 `TRADING_ENABLED=false` mientras validas la instalación. No guardes secretos en imágenes,
 logs ni el repositorio.
 
-## 4. Construir e iniciar
+## 4. Construir e iniciar con Docker Compose
+
+```bash
+mkdir -p data
+docker compose up -d --build
+```
+
+O si prefieres usar `docker run` directamente:
 
 ```bash
 docker build -t wallbit-bot:local .
-mkdir -p data
 docker run -d \
   --name wallbit-bot \
   --restart unless-stopped \
@@ -49,26 +55,31 @@ docker run -d \
 Comprobar:
 
 ```bash
-docker ps
-docker logs --tail 100 wallbit-bot
+docker compose ps
+docker compose logs --tail 100
 docker exec wallbit-bot python -m app doctor
 ```
 
 `doctor` nunca imprime tokens ni API keys. Puede consultar Wallbit usando una operación de
-lectura para comprobar autenticación.
+lectura para comprobar autenticación. En Telegram puedes usar `/estado` para ver métricas en vivo.
 
-## 5. Backup SQLite
+## 5. Backup SQLite (En caliente / Atómico)
 
-Detén brevemente el contenedor o usa una copia consistente desde el mismo host:
+El bot incluye respaldo atómico mediante la API nativa de SQLite sin necesidad de detener el contenedor:
 
 ```bash
-docker stop wallbit-bot
-cp data/wallbit.db "data/wallbit.db.$(date +%Y%m%d-%H%M%S).bak"
-docker start wallbit-bot
+# Ejecutar respaldo atómico dentro del contenedor:
+docker exec wallbit-bot python -m app backup --dir /data/backups --keep 7
 ```
 
-Guarda las copias fuera de la VM y prueba su restauración periódicamente. No las subas al
-repositorio.
+O mediante un cron en el host (`crontab -e`):
+
+```bash
+# Respaldo diario a las 03:00 AM con rotación automática de las últimas 7 copias:
+0 3 * * * docker exec wallbit-bot python -m app backup --dir /data/backups --keep 7
+```
+
+Guarda las copias fuera de la VM (por ejemplo en Azure Blob Storage o S3) y prueba su restauración periódicamente. No las subas al repositorio.
 
 ## 6. Actualizar
 

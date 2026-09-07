@@ -54,12 +54,27 @@ def doctor() -> int:
     return 0 if telegram_ok and wallbit_configured and database_ok and scheduler_ok else 1
 
 
+def run_backup(target_dir: str = "backups", keep: int = 7) -> int:
+    try:
+        from app.infrastructure.database.backup import create_sqlite_backup
+        backup_file = create_sqlite_backup(target_dir=target_dir, keep=keep)
+        print(f"Respaldo creado con éxito en: {backup_file}")
+        return 0
+    except Exception as err:
+        print(f"ERROR: Falló el respaldo: {err}", file=sys.stderr)
+        return 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app")
-    parser.add_argument("command", choices=("doctor",))
+    parser.add_argument("command", choices=("doctor", "backup"))
+    parser.add_argument("--dir", default="backups", help="Directorio de destino para respaldos")
+    parser.add_argument("--keep", type=int, default=7, help="Cantidad de copias a conservar")
     args = parser.parse_args(argv)
     if args.command == "doctor":
         return doctor()
+    elif args.command == "backup":
+        return run_backup(target_dir=args.dir, keep=args.keep)
     return 1
 
 

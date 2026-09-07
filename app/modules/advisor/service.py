@@ -9,7 +9,9 @@ from app.modules.advisor.provider import (
     AdvisorContext,
     AdvisorProviderUnavailableError,
     AIProvider,
+    GeminiProvider,
     MockProvider,
+    OpenAIProvider,
     WallsyncProvider,
 )
 from app.modules.advisor.tools import (
@@ -54,8 +56,13 @@ class AdvisorService:
 
     @staticmethod
     def _provider_from_settings() -> AIProvider:
-        if settings.WALLSYNC_ENABLED or settings.AI_PROVIDER.lower() == "wallsync":
+        provider_name = settings.AI_PROVIDER.lower().strip()
+        if settings.WALLSYNC_ENABLED or provider_name == "wallsync":
             return WallsyncProvider()
+        if provider_name == "gemini":
+            return GeminiProvider()
+        if provider_name in ("openai", "openai-compatible"):
+            return OpenAIProvider()
         return MockProvider()
 
     def _build_tools(self, session: Session, user: UserSettings) -> ToolRegistry:

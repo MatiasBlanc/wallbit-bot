@@ -2,7 +2,7 @@
 
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
-from app.bot.commands import get_start_handler
+from app.bot.commands import get_orders_handler, get_start_handler, get_status_handler
 from app.core.config import settings
 from app.infrastructure.wallbit.client import WallbitClient
 from app.modules.advisor.handler import get_advisor_callbacks, get_advisor_handler
@@ -237,6 +237,8 @@ def register_handlers(
     application.add_handler(get_config_time_conversation_handler(user_repo))
 
     application.add_handler(CommandHandler("start", get_start_handler(client, user_repo)))
+    application.add_handler(CommandHandler(["estado", "status"], get_status_handler()))
+    application.add_handler(CommandHandler("ordenes", get_orders_handler(order_service)))
     register_balance_handlers(application, balance_service, user_repo)
     register_portfolio_handlers(application, portfolio_service, user_repo)
     register_report_handlers(application, report_service, user_repo)

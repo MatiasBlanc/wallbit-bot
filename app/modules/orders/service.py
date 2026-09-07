@@ -342,3 +342,42 @@ class OrderService:
                 amount_usd=order.amount_usd,
                 error_message="Ocurrió un error inesperado al procesar la compra.",
             )
+
+    def list_orders_needing_verification(self, session: Session, user_id: int) -> list[PendingOrder]:
+        """Devuelve órdenes marcadas como verification_required para revisión manual."""
+        return self.order_repo.list_unverified_orders(session, user_id)
+
+    def reconcile_order(
+        self,
+        session: Session,
+        user_id: int,
+        order_id: int,
+        was_executed_on_wallbit: bool,
+        external_order_id: str | None = None,
+    ) -> bool:
+        """Reconcilia una orden cuyo estado de red era indeterminado."""
+        new_status = ORDER_STATUS_EXECUTED if was_executed_on_wallbit else ORDER_STATUS_FAILED
+        success = self.order_repo.resolve_unverified(
+            session=session,
+            order_id=order_id,
+            user_id=user_id,
+            resolved_status=new_status,
+            external_order_id=external_order_id,
+        )
+        if success and was_executed_on_wallbit:
+            order = self.order_repo.get_by_id(session, order_id)
+            if order:
+                tx_type = TX_TYPE_DCA_BUY if order.dca_rule_id else TX_TYPE_BUY
+                tx_source = TX_SOURCE_DCA if order.dca_rule_id else TX_SOURCE_MANUAL
+                self.tx_repo.create(
+                    session=session,
+                    user_id=user_id,
+                    transaction_type=tx_type,
+                    amount_usd=order.amount_usd,
+                    ticker=order.ticker,
+                    external_order_id=external_order_id or order.external_order_id or f"REC-{order_id}",
+                    source=f"{tx_source}_RECONCILED",
+                )
+        session.commit()
+        return success
+

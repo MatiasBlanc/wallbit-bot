@@ -6,41 +6,35 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db.database import Base
-from app.db.models import UserSettings
-from app.db.repositories.alert_repo import AlertRepository
-from app.db.repositories.dca_repo import DCARuleRepository
-from app.db.repositories.pending_order_repo import PendingOrderRepository
-from app.db.repositories.transaction_repo import LocalTransactionRepository
-from app.db.repositories.user_settings_repo import UserSettingsRepository
-from app.services.alert_service import AlertService
-from app.services.balance_service import BalanceService
-from app.services.dca_service import DCAService
-from app.services.exchange_service import (
-    ExchangeRateService,
-    WallbitExchangeRateProvider,
-)
-from app.services.history_service import HistoryService
-from app.services.order_service import OrderService
-from app.services.portfolio_service import PortfolioService
-from app.services.report_service import ReportService
-from app.wallbit.client import WallbitClient
-from app.wallbit.schemas import (
-    AssetDetails,
-    CheckingBalanceItem,
-    ExchangeRateData,
-    StockBalanceItem,
-    TradeResult,
-    TransactionCurrency,
-    TransactionItem,
-    TransactionsData,
-)
+from app.infrastructure.database.base import Base
+from app.infrastructure.database.database import register_models
+from app.infrastructure.wallbit.client import WallbitClient
+from app.infrastructure.wallbit.schemas.balance import CheckingBalanceItem, StockBalanceItem
+from app.infrastructure.wallbit.schemas.orders import ExchangeRateData, TradeResult
+from app.infrastructure.wallbit.schemas.portfolio import AssetDetails
+from app.infrastructure.wallbit.schemas.transactions import TransactionCurrency, TransactionItem, TransactionsData
+from app.modules.alerts.repository import AlertRepository
+from app.modules.alerts.service import AlertService
+from app.modules.balance.service import BalanceService
+from app.modules.dca.repository import DCARuleRepository
+from app.modules.dca.service import DCAService
+from app.modules.history.repository import LocalTransactionRepository
+from app.modules.history.service import HistoryService
+from app.modules.orders.repository import PendingOrderRepository
+from app.modules.orders.service import OrderService
+from app.modules.portfolio.service import PortfolioService
+from app.modules.reports.service import ReportService
+from app.modules.settings.models import UserSettings
+from app.modules.settings.repository import UserSettingsRepository
+from app.shared.exchange.providers import WallbitExchangeRateProvider
+from app.shared.exchange.service import ExchangeRateService
 
 
 @pytest.fixture
 def db_session():
     """In-memory SQLite database session for isolated testing."""
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    register_models()
     Base.metadata.create_all(bind=engine)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSessionLocal()
@@ -79,7 +73,7 @@ def mock_wallbit_client():
             return AssetDetails(symbol="AAPL", name="Apple Inc.", price=180.00)
         elif s == "SPY":
             return AssetDetails(symbol="SPY", name="SPDR S&P 500 ETF Trust", price=510.00)
-        from app.wallbit.exceptions import InvalidTickerError
+        from app.infrastructure.wallbit.exceptions import InvalidTickerError
         raise InvalidTickerError(s)
 
     client.get_asset.side_effect = mock_get_asset
@@ -190,10 +184,10 @@ def portfolio_service(mock_wallbit_client):
 
 
 @pytest.fixture
-def dca_service(dca_repo, order_repo, mock_wallbit_client, balance_service):
+def dca_service(dca_repo, order_service, mock_wallbit_client, balance_service):
     return DCAService(
         dca_repo=dca_repo,
-        order_repo=order_repo,
+        order_service=order_service,
         client=mock_wallbit_client,
         balance_service=balance_service,
     )

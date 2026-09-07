@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     AI_ENABLED: bool = False
     WALLSYNC_ENABLED: bool = False
     AI_PROVIDER: str = "mock"
+    AI_API_KEY: str = Field(default="", description="API key for real AI provider (Gemini, OpenAI, etc.)")
+    AI_MODEL: str = Field(default="", description="Model name (e.g. gemini-2.5-flash or gpt-4o-mini)")
+    AI_BASE_URL: str = Field(default="", description="Custom base URL for OpenAI-compatible providers")
 
     # Caches
     FX_CACHE_TTL_SECONDS: float = Field(default=300.0, ge=0, le=3600)

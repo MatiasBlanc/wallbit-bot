@@ -10,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 from app.core.config import settings
 from app.core.identity import current_identity
 from app.core.logging import get_logger
+from app.infrastructure.monitoring.metrics import metrics
 from app.infrastructure.wallbit.exceptions import (
     ExchangeRateUnavailableError,
     InsufficientFundsError,
@@ -178,6 +179,7 @@ class WallbitClient:
         is_idempotent = method.upper() in ["GET", "HEAD", "OPTIONS"]
 
         for attempt in range(max_retries + 1):
+            t0 = time.monotonic()
             try:
                 # El límite es global al cliente; el backoff no retiene un cupo.
                 async with self._request_slots:
@@ -188,6 +190,9 @@ class WallbitClient:
                         json=json_data,
                         headers=headers,
                     )
+                latency_ms = (time.monotonic() - t0) * 1000
+                metrics.record_api_call(latency_ms, success=response.is_success)
+
                 if response.status_code == 429 and attempt < max_retries and is_idempotent:
                     retry_after_hdr = response.headers.get("Retry-After")
                     delay = int(retry_after_hdr) if retry_after_hdr and retry_after_hdr.isdigit() else 2 ** (attempt + 1)
@@ -200,6 +205,8 @@ class WallbitClient:
                 return response
 
             except (httpx.NetworkError, httpx.TimeoutException) as exc:
+                latency_ms = (time.monotonic() - t0) * 1000
+                metrics.record_api_call(latency_ms, success=False)
                 if attempt < max_retries and is_idempotent:
                     delay = 2 ** attempt
                     logger.warning(

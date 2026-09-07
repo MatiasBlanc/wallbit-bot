@@ -62,3 +62,84 @@ def test_tool_registry_rejects_trade_registration():
 
     with pytest.raises(ValueError, match="trading"):
         registry.register("execute_trade", EmptyArguments, handler)
+
+
+@pytest.mark.asyncio
+async def test_gemini_provider_requires_api_key(monkeypatch):
+    from app.modules.advisor.provider import AdvisorContext, AdvisorProviderUnavailableError, GeminiProvider
+    monkeypatch.setattr(settings, "AI_API_KEY", "")
+    provider = GeminiProvider()
+    with pytest.raises(AdvisorProviderUnavailableError, match="AI_API_KEY"):
+        await provider.analyze(AdvisorContext("USD", "UTC", "hola"), ToolRegistry())
+
+
+@pytest.mark.asyncio
+async def test_gemini_provider_success(monkeypatch):
+    import httpx
+
+    from app.modules.advisor.provider import AdvisorContext, GeminiProvider
+
+    monkeypatch.setattr(settings, "AI_API_KEY", "test-key-123")
+    monkeypatch.setattr(settings, "AI_MODEL", "gemini-2.5-flash")
+
+    mock_resp = {
+        "candidates": [
+            {"content": {"parts": [{"text": "<b>Análisis Gemini</b>: Cartera diversificada."}]}}
+        ]
+    }
+
+    async def mock_post(url, **kwargs):
+        return httpx.Response(200, json=mock_resp, request=httpx.Request("POST", url))
+
+    client = httpx.AsyncClient()
+    monkeypatch.setattr(client, "post", mock_post)
+
+    provider = GeminiProvider(client=client)
+    result = await provider.analyze(AdvisorContext("USD", "UTC", "como estoy?"), ToolRegistry())
+    assert "Cartera diversificada" in result
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_success(monkeypatch):
+    import httpx
+
+    from app.modules.advisor.provider import AdvisorContext, OpenAIProvider
+
+    monkeypatch.setattr(settings, "AI_API_KEY", "test-key-openai")
+    monkeypatch.setattr(settings, "AI_MODEL", "gpt-4o-mini")
+
+    mock_resp = {
+        "choices": [
+            {"message": {"content": "<b>Análisis OpenAI</b>: Riesgo moderado."}}
+        ]
+    }
+
+    async def mock_post(url, **kwargs):
+        return httpx.Response(200, json=mock_resp, request=httpx.Request("POST", url))
+
+    client = httpx.AsyncClient()
+    monkeypatch.setattr(client, "post", mock_post)
+
+    provider = OpenAIProvider(client=client)
+    result = await provider.analyze(AdvisorContext("USD", "UTC", "evalua riesgo"), ToolRegistry())
+    assert "Riesgo moderado" in result
+
+
+def test_advisor_provider_selection(monkeypatch):
+    from app.modules.advisor.provider import GeminiProvider, MockProvider, OpenAIProvider, WallsyncProvider
+    from app.modules.advisor.service import AdvisorService
+
+    monkeypatch.setattr(settings, "WALLSYNC_ENABLED", False)
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "mock")
+    assert isinstance(AdvisorService._provider_from_settings(), MockProvider)
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    assert isinstance(AdvisorService._provider_from_settings(), GeminiProvider)
+
+    monkeypatch.setattr(settings, "AI_PROVIDER", "openai")
+    assert isinstance(AdvisorService._provider_from_settings(), OpenAIProvider)
+
+    monkeypatch.setattr(settings, "WALLSYNC_ENABLED", True)
+    assert isinstance(AdvisorService._provider_from_settings(), WallsyncProvider)
+

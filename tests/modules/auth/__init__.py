@@ -1,0 +1,1 @@
+"""Pruebas de vinculación multiusuario."""

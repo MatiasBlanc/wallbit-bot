@@ -44,7 +44,10 @@ Está construido como un **monolito modular con responsabilidades claramente sep
 - 🧾 **Historial de Movimientos (`/historial`)**: Consulta de transacciones de Wallbit complementadas con el registro local, con paginación interactiva.
 - ⚙️ **Configuración Interactiva (`/config`)**: Personaliza moneda por defecto, hora matutina, zona horaria y verifica el estado de conexión con Wallbit mediante botones.
 - 🔒 **Instancia privada de usuario único**: todas las actualizaciones y callbacks requieren `TELEGRAM_ALLOWED_USER_ID`.
-- 🤖 **Advisor opcional (`/analizar`)**: análisis de solo lectura con herramientas tipadas; no puede ejecutar operaciones.
+- 🤖 **Advisor con IA Real (`/analizar`)**: análisis de solo lectura mediante Google Gemini u OpenAI con herramientas tipadas; no puede ejecutar operaciones.
+- ⚠️ **Gestión de Órdenes (`/ordenes`)**: inspecciona órdenes en `verification_required` para prevenir compras duplicadas si hubo problemas de red.
+- 📈 **Observabilidad y Métricas (`/estado` o `/status`)**: latencias de API en tiempo real, estado de jobs en segundo plano y uptime.
+- 💾 **Respaldos Atómicos (`python -m app backup`)**: copia consistente en caliente de SQLite con rotación configurable sin parar el bot.
 - 🧹 **Sanitización de logs**: Enmascara secretos globales y la credencial del contexto activo, incluidos objetos y tracebacks.
 
 ---

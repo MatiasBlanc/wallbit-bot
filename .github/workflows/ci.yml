@@ -26,6 +26,6 @@ jobs:
           mypy --follow-imports=skip
           app/__main__.py app/modules/advisor app/shared/presentation
           app/infrastructure/wallbit/client.py app/infrastructure/wallbit/exceptions.py
-          app/modules/orders/service.py
+          app/modules/orders/service.py app/infrastructure/monitoring app/infrastructure/database/backup.py
       - name: Tests
         run: pytest -q
