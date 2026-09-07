@@ -17,11 +17,43 @@
 
 ## Tareas realizadas
 
-_(Se actualizará después de cada cambio lógico.)_
+- Corregido un `SyntaxError` en callbacks DCA que impedía importar la aplicación.
+- Añadida migración SQLite aditiva para `dca_rules.asset_name`, conservando bases V1 existentes.
+- Endurecido `OrderService`: respuestas inciertas de Wallbit pasan a `verification_required` sin retry ciego.
+- Añadido test de 100 confirmaciones concurrentes: una ejecución lógica y 99 rechazos.
+- Endurecido `WallbitClient`: `AsyncClient` compartido, caché corta/coalescing de activos, network errors,
+  JSON malformado y respuestas inesperadas con excepciones de dominio.
+- Añadida capa `app/shared/presentation/` con formato común, loading temprano, edición del mensaje y errores UX.
+- `/saldo`, `/inv` y `/reporte` muestran feedback temprano y editan el mismo mensaje cuando Telegram lo permite.
+- Añadido `modules/advisor/` opcional y de solo lectura con provider intercambiable, `ToolRegistry` tipado,
+  `MockProvider` y adapter Wallsync sin endpoint inventado. Incluido `/analizar`.
+- Añadidos `AI_ENABLED`, `AI_PROVIDER`, `WALLSYNC_ENABLED`, `FX_CACHE_TTL_SECONDS` y
+  `WALLBIT_CACHE_TTL_SECONDS`.
+- Configuración y README alineados con una sola instancia/usuario; `MULTI_USER_ENABLED=true` se rechaza
+  en configuración de producción y no se anuncia como feature.
+- Añadidos `python -m app doctor`, Docker, `.dockerignore`, CI y `DEPLOYMENT.md`.
+- Actualizada configuración visible para mostrar Trading real e IA.
+
+### Wallsync
+
+Se investigaron fuentes públicas. `wallsync.cc` describe agentes financieros y señala que su infraestructura
+usa Wallbit, pero no publica una API, MCP, flujo de autenticación o documentación de integración para terceros.
+Por seguridad, se dejó `WallsyncProvider` preparado y `WALLSYNC_ENABLED=false`; no se scrapea ni automatiza
+la web.
 
 ## Commits
 
-_(Se añadirá el hash y el propósito de cada commit.)_
+- `cec2315` fix: repair DCA callback formatting syntax
+- `35ec7db` fix: migrate legacy DCA metadata safely
+- `f8df23c` security: require verification after uncertain trade response
+- `0f17606` fix: harden Wallbit response and network handling
+- `1db9292` feat: unify Telegram loading and error presentation
+- `70d2593` perf: coalesce short-lived Wallbit asset reads
+- `b180132` feat: add optional read-only advisor module
+- `ff13287` docs: align single-user configuration and advisor setup
+- `63f5720` chore: add doctor Docker CI and deployment guidance
+- `6515a9d` test: cover concurrent pending order confirmation
+- `e9a8778` security: reject unsupported multi-user runtime mode
 
 ## Problemas y decisiones
 
