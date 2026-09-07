@@ -61,12 +61,18 @@ la web.
 - No se harán requests de escritura contra Wallbit.
 - El README actual anuncia un modo multiusuario y login, en contradicción con las fuentes de verdad; requiere corrección documental y revisión del código de alcance.
 
-## TODOs
+## Validación final
 
-- Corregir primero el error sintáctico y repetir baseline.
-- Auditar autorización de comandos y callbacks.
-- Revisar `OrderService` para idempotencia, expiración y timeout financiero.
-- Revisar cliente HTTP, concurrencia/cache y errores de dominio.
-- Mejorar presentación Telegram y tests críticos.
-- Preparar Advisor opcional sin capacidad de trading.
-- Actualizar documentación, Docker/CI y revisiones finales.
+- `pytest -q`: 101 passed.
+- `ruff check .`: OK.
+- Mypy dirigido a módulos nuevos/endurecidos: OK.
+- `python -m compileall -q app main.py`: OK.
+- Docker build no ejecutado: el binario Docker no está disponible en el entorno.
+- Coverage no ejecutado: no hay comando/configuración disponible.
+
+## TODOs pendientes
+
+- Tipar progresivamente el código heredado para eliminar los 386 diagnósticos mypy del baseline completo.
+- Ejecutar build Docker y doctor con un entorno de staging, sin credenciales productivas de escritura.
+- Añadir un provider IA real solo cuando exista una API oficial disponible.
+- Implementar Wallsync únicamente tras confirmar documentación oficial programática.
