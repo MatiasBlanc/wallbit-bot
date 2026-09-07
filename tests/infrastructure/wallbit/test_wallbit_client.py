@@ -1,10 +1,12 @@
 """Tests for WallbitClient HTTP handling and exception mapping."""
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 
+from app.core.config import settings
 from app.infrastructure.wallbit.client import WallbitClient
 from app.infrastructure.wallbit.exceptions import (
     InsufficientFundsError,
@@ -77,6 +79,25 @@ async def test_wallbit_client_429_rate_limit():
         with pytest.raises(WallbitRateLimitError) as exc_info:
             await client.create_trade(TradeRequest(symbol="VOO", amount=50.0))
         assert exc_info.value.retry_after == 10
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_wallbit_client_coalesces_and_caches_asset_reads(monkeypatch):
+    monkeypatch.setattr(settings, "WALLBIT_CACHE_TTL_SECONDS", 5.0)
+    client = WallbitClient(base_url="https://api.wallbit.io", api_key="dummy_key")
+    mock_resp = httpx.Response(
+        status_code=200,
+        json={"data": {"symbol": "VOO", "name": "Vanguard", "price": 495.2}},
+        request=httpx.Request("GET", "https://api.wallbit.io/api/public/v1/assets/VOO"),
+    )
+    with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_req:
+        mock_req.return_value = mock_resp
+        assets = await asyncio.gather(*(client.get_asset("voo") for _ in range(20)))
+        assert all(asset.symbol == "VOO" for asset in assets)
+        assert mock_req.await_count == 1
+        await client.get_asset("VOO")
+        assert mock_req.await_count == 1
     await client.close()
 
 

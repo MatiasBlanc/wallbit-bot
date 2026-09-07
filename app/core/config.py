@@ -1,6 +1,6 @@
 """Application configuration and settings."""
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,9 +16,17 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = Field(default="", description="Telegram Bot API Token")
     TELEGRAM_ALLOWED_USER_ID: int = Field(default=0, description="Authorized Telegram User ID")
 
+    # El modo privado anterior sigue siendo el predeterminado.
+    MULTI_USER_ENABLED: bool = False
+    CREDENTIAL_ENCRYPTION_KEY: SecretStr = Field(default=SecretStr(""), repr=False)
+    LOGIN_CODE_TTL_MINUTES: int = Field(default=15, ge=1, le=60)
+
     # Wallbit API
     WALLBIT_API_KEY: str = Field(default="", description="Wallbit Public API Key")
     WALLBIT_BASE_URL: str = Field(default="https://api.wallbit.io", description="Wallbit API Base URL")
+    WALLBIT_MAX_CONCURRENT_REQUESTS: int = Field(default=4, ge=1, le=16, description="Máximo de solicitudes HTTP simultáneas")
+    WALLBIT_PLAN: str = Field(default="classic", description="Plan usado para estimar la comisión: classic, pro o max")
+    WALLBIT_CACHE_TTL_SECONDS: float = Field(default=5.0, ge=0, le=60, description="Caché corta de metadata y cotizaciones")
 
     # Database
     DATABASE_URL: str = Field(default="sqlite:///wallbit.db", description="Database connection URL")
@@ -31,13 +39,29 @@ class Settings(BaseSettings):
     # Trading & Simulation
     TRADING_ENABLED: bool = Field(default=False, description="When false, all trades run in simulation/dry-run mode")
 
+    # Optional AI
+    AI_ENABLED: bool = False
+    WALLSYNC_ENABLED: bool = False
+    AI_PROVIDER: str = "mock"
+
+    # Caches
+    FX_CACHE_TTL_SECONDS: float = Field(default=300.0, ge=0, le=3600)
+
     # Logging
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
 
     # Scheduler intervals (minutes)
-    ALERT_CHECK_INTERVAL_MINUTES: int = Field(default=5, description="Interval to check price and FX alerts")
-    DCA_CHECK_INTERVAL_MINUTES: int = Field(default=1, description="Interval to check due DCA rules")
-    ORDER_EXPIRY_HOURS: int = Field(default=24, description="Hours until an unconfirmed pending order expires")
+    ALERT_CHECK_INTERVAL_MINUTES: int = Field(default=5, ge=1, description="Interval to check price and FX alerts")
+    DCA_CHECK_INTERVAL_MINUTES: int = Field(default=1, ge=1, description="Interval to check due DCA rules")
+    ORDER_EXPIRY_HOURS: int = Field(default=24, ge=1, description="Hours until an unconfirmed pending order expires")
+
+    @field_validator("WALLBIT_PLAN")
+    @classmethod
+    def validate_wallbit_plan(cls, value: str) -> str:
+        plan = value.lower().strip()
+        if plan not in {"classic", "pro", "max"}:
+            raise ValueError("WALLBIT_PLAN debe ser classic, pro o max")
+        return plan
 
     @field_validator("DEFAULT_REPORT_TIME")
     @classmethod

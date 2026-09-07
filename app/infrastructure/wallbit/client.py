@@ -1,6 +1,7 @@
 """Asynchronous Wallbit Public API client."""
 
 import asyncio
+import time
 from typing import Any, TypeVar
 
 import httpx
@@ -71,6 +72,8 @@ class WallbitClient:
         if self.max_concurrent_requests < 1:
             raise ValueError("El límite de solicitudes debe ser positivo.")
         self._request_slots = asyncio.Semaphore(self.max_concurrent_requests)
+        self._asset_cache: dict[str, tuple[float, AssetDetails]] = {}
+        self._asset_requests: dict[str, asyncio.Task[AssetDetails]] = {}
 
     def _get_headers(self) -> dict[str, str]:
         headers = {
@@ -238,14 +241,35 @@ class WallbitClient:
         parsed = self._parse_model(StocksBalanceResponse, resp)
         return parsed.data
 
-    async def get_asset(self, symbol: str) -> AssetDetails:
-        """GET /api/public/v1/assets/{symbol}"""
+    async def _fetch_asset(self, symbol: str) -> AssetDetails:
+        """Obtiene un activo de Wallbit y traduce el 404 al dominio."""
         try:
-            resp = await self._request("GET", f"/api/public/v1/assets/{symbol.upper()}")
+            resp = await self._request("GET", f"/api/public/v1/assets/{symbol}")
             parsed = self._parse_model(AssetResponse, resp)
             return parsed.data
         except WallbitNotFoundError:
             raise InvalidTickerError(symbol)
+
+    async def get_asset(self, symbol: str) -> AssetDetails:
+        """Obtiene metadata/cotización con caché corta y coalescing por símbolo."""
+        normalized = symbol.upper().strip()
+        now = time.monotonic()
+        cached = self._asset_cache.get(normalized)
+        if cached and now - cached[0] < settings.WALLBIT_CACHE_TTL_SECONDS:
+            return cached[1]
+
+        request = self._asset_requests.get(normalized)
+        if request is None:
+            request = asyncio.create_task(self._fetch_asset(normalized))
+            self._asset_requests[normalized] = request
+        try:
+            asset = await asyncio.shield(request)
+            if settings.WALLBIT_CACHE_TTL_SECONDS > 0:
+                self._asset_cache[normalized] = (time.monotonic(), asset)
+            return asset
+        finally:
+            if request.done():
+                self._asset_requests.pop(normalized, None)
 
     async def get_assets(
         self,

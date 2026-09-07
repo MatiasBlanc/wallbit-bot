@@ -2,33 +2,29 @@
 
 import sys
 
-from dotenv import load_dotenv
-
-# Load environment variables early
-load_dotenv()
-
-from app.bot.bot import create_bot_application
+from app.bot.application import create_bot_application
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
-from app.db.database import init_db
-from app.db.repositories.alert_repo import AlertRepository
-from app.db.repositories.dca_repo import DCARuleRepository
-from app.db.repositories.pending_order_repo import PendingOrderRepository
-from app.db.repositories.transaction_repo import LocalTransactionRepository
-from app.db.repositories.user_settings_repo import UserSettingsRepository
-from app.jobs.scheduler import BotScheduler
-from app.services.alert_service import AlertService
-from app.services.balance_service import BalanceService
-from app.services.dca_service import DCAService
-from app.services.exchange_service import (
-    ExchangeRateService,
-    WallbitExchangeRateProvider,
-)
-from app.services.history_service import HistoryService
-from app.services.order_service import OrderService
-from app.services.portfolio_service import PortfolioService
-from app.services.report_service import ReportService
-from app.wallbit.client import WallbitClient
+from app.infrastructure.database.database import init_db
+from app.infrastructure.scheduler.scheduler import BotScheduler
+from app.infrastructure.wallbit.client import WallbitClient
+from app.infrastructure.wallbit.health import WallbitHealth
+from app.modules.advisor.service import AdvisorService
+from app.modules.alerts.repository import AlertRepository
+from app.modules.alerts.service import AlertService
+from app.modules.auth.service import validate_multi_user_config
+from app.modules.balance.service import BalanceService
+from app.modules.dca.repository import DCARuleRepository
+from app.modules.dca.service import DCAService
+from app.modules.history.repository import LocalTransactionRepository
+from app.modules.history.service import HistoryService
+from app.modules.orders.repository import PendingOrderRepository
+from app.modules.orders.service import OrderService
+from app.modules.portfolio.service import PortfolioService
+from app.modules.reports.service import ReportService
+from app.modules.settings.repository import UserSettingsRepository
+from app.shared.exchange.providers import WallbitExchangeRateProvider
+from app.shared.exchange.service import ExchangeRateService
 
 setup_logging()
 logger = get_logger("main")
@@ -37,13 +33,15 @@ logger = get_logger("main")
 def main() -> None:
     logger.info("Initializing Wallbit Assistant Bot...")
 
+    validate_multi_user_config()
+
     # Validate essential environment variables
     if not settings.TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN is not set in environment or .env file.")
         print("ERROR: TELEGRAM_BOT_TOKEN is missing. Please check your .env file.")
         sys.exit(1)
 
-    if not settings.TELEGRAM_ALLOWED_USER_ID:
+    if not settings.MULTI_USER_ENABLED and not settings.TELEGRAM_ALLOWED_USER_ID:
         logger.warning(
             "TELEGRAM_ALLOWED_USER_ID is not configured. The bot will reject all interactions for security."
         )
@@ -57,6 +55,7 @@ def main() -> None:
         base_url=settings.WALLBIT_BASE_URL,
         api_key=settings.WALLBIT_API_KEY,
     )
+    health = WallbitHealth(client)
 
     # Instantiate Repositories
     user_repo = UserSettingsRepository()
@@ -67,18 +66,21 @@ def main() -> None:
 
     # Instantiate Services
     wallbit_rate_provider = WallbitExchangeRateProvider(client)
-    exchange_service = ExchangeRateService(primary_provider=wallbit_rate_provider)
-    balance_service = BalanceService(client=client, exchange_service=exchange_service)
-    portfolio_service = PortfolioService(client=client)
-    dca_service = DCAService(
-        dca_repo=dca_repo,
-        order_repo=order_repo,
-        client=client,
-        balance_service=balance_service,
+    exchange_service = ExchangeRateService(
+        primary_provider=wallbit_rate_provider,
+        cache_ttl_seconds=int(settings.FX_CACHE_TTL_SECONDS),
     )
+    balance_service = BalanceService(client=client, exchange_service=exchange_service)
+    portfolio_service = PortfolioService(client=client, tx_repo=tx_repo)
     order_service = OrderService(
         order_repo=order_repo,
         tx_repo=tx_repo,
+        client=client,
+        balance_service=balance_service,
+    )
+    dca_service = DCAService(
+        dca_repo=dca_repo,
+        order_service=order_service,
         client=client,
         balance_service=balance_service,
     )
@@ -93,16 +95,19 @@ def main() -> None:
         portfolio_service=portfolio_service,
         exchange_service=exchange_service,
     )
+    advisor_service = AdvisorService(
+        balance_service=balance_service,
+        portfolio_service=portfolio_service,
+        report_service=report_service,
+        history_service=history_service,
+        dca_service=dca_service,
+        alert_service=alert_service,
+    )
 
     # Build Telegram Bot Application
     bot_app = create_bot_application(
         client=client,
         user_repo=user_repo,
-        dca_repo=dca_repo,
-        order_repo=order_repo,
-        alert_repo=alert_repo,
-        tx_repo=tx_repo,
-        exchange_service=exchange_service,
         balance_service=balance_service,
         portfolio_service=portfolio_service,
         dca_service=dca_service,
@@ -110,6 +115,7 @@ def main() -> None:
         alert_service=alert_service,
         history_service=history_service,
         report_service=report_service,
+        advisor_service=advisor_service,
     )
 
     # Setup Centralized Scheduler
@@ -119,11 +125,14 @@ def main() -> None:
         dca_service=dca_service,
         alert_service=alert_service,
         order_repo=order_repo,
+        health=health,
     )
 
     # Start scheduler when bot initializes
     async def post_init(application) -> None:
+        application.bot_data["wallbit_health"] = health
         scheduler.start()
+        application.create_task(health.refresh())
         logger.info("Bot application initialized and scheduler started.")
 
     async def post_shutdown(application) -> None:
@@ -137,7 +146,7 @@ def main() -> None:
     logger.info(
         f"Bot starting... Trading mode: {'REAL' if settings.TRADING_ENABLED else 'SIMULATION/DRY-RUN'}"
     )
-    bot_app.run_polling(drop_pending_updates=True)
+    bot_app.run_polling(drop_pending_updates=True, allowed_updates=["message", "callback_query"])
 
 
 if __name__ == "__main__":
