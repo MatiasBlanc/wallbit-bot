@@ -5,11 +5,11 @@ from html import escape
 from telegram import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from app.modules.dca.conversation import format_asset_label
 from app.core.constants import DCA_FREQ_WEEKLY, WEEKDAY_NAMES_ES
 from app.core.logging import get_logger
 from app.core.security import restricted
 from app.infrastructure.database.database import get_db_session
+from app.modules.dca.conversation import format_asset_label
 from app.modules.dca.keyboards import get_dca_item_keyboard, get_dca_menu_keyboard
 from app.modules.dca.service import DCAService
 from app.modules.settings.repository import UserSettingsRepository
