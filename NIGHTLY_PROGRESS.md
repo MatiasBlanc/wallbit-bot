@@ -54,6 +54,7 @@ la web.
 - `63f5720` chore: add doctor Docker CI and deployment guidance
 - `6515a9d` test: cover concurrent pending order confirmation
 - `e9a8778` security: reject unsupported multi-user runtime mode
+- `35d27c4` fix: classify HTTP timeouts as unavailable
 
 ## Problemas y decisiones
 
@@ -63,7 +64,7 @@ la web.
 
 ## Validación final
 
-- `pytest -q`: 101 passed.
+- `pytest -q`: 102 passed.
 - `ruff check .`: OK.
 - Mypy dirigido a módulos nuevos/endurecidos: OK.
 - `python -m compileall -q app main.py`: OK.

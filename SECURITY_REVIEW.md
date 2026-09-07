@@ -43,7 +43,7 @@ Fecha: sesión `nightly/v2-polish`
 ## Validaciones realizadas
 
 - `TRADING_ENABLED=false` confirmado en el `.env` de la instancia.
-- `pytest`: 101 tests pasan después de añadir el test de concurrencia.
+- `pytest`: 102 tests pasan después de añadir concurrencia y timeout HTTP.
 - `ruff check .`: pasa.
 - `mypy --follow-imports=skip` sobre módulos nuevos y endurecidos: pasa.
 - No se hicieron requests de escritura, compras ni ventas.

@@ -91,7 +91,7 @@ Estado: adapter preparado, `WALLSYNC_ENABLED=false`.
 
 - Baseline inicial: colección bloqueada por un `SyntaxError` en DCA; después de corregirlo hubo 93 tests
   pasando y 1 fallo de migración heredada.
-- Estado final: **101 passed**.
+- Estado final: **102 passed**.
 - `ruff check .`: **OK**.
 - Mypy dirigido a los módulos nuevos/endurecidos con `--follow-imports=skip`: **OK**.
 - Mypy completo del repositorio en baseline: falló con 386 errores heredados de tipado SQLAlchemy/Telegram;
@@ -114,6 +114,7 @@ Estado: adapter preparado, `WALLSYNC_ENABLED=false`.
 - `6515a9d` test: cover concurrent pending order confirmation
 - `e9a8778` security: reject unsupported multi-user runtime mode
 - `3894cc8` docs: record nightly progress and security review
+- `35d27c4` fix: classify HTTP timeouts as unavailable
 
 El árbol conserva además cambios preexistentes del usuario que ya estaban sin commitear al comenzar; no se
 resetearon ni borraron.
