@@ -35,9 +35,10 @@ logs ni el repositorio.
 ## 4. Construir e iniciar con Docker Compose
 
 ```bash
-mkdir -p data
 docker compose up -d --build
 ```
+
+Compose crea el volumen administrado `wallbit-data`, escribible por el usuario no root del contenedor.
 
 O si prefieres usar `docker run` directamente:
 
@@ -48,7 +49,7 @@ docker run -d \
   --restart unless-stopped \
   --env-file .env \
   -e DATABASE_URL=sqlite:////data/wallbit.db \
-  -v "$PWD/data:/data" \
+  -v wallbit-data:/data \
   wallbit-bot:local
 ```
 
@@ -60,8 +61,8 @@ docker compose logs --tail 100
 docker exec wallbit-bot python -m app doctor
 ```
 
-`doctor` nunca imprime tokens ni API keys. Puede consultar Wallbit usando una operación de
-lectura para comprobar autenticación. En Telegram puedes usar `/estado` para ver métricas en vivo.
+`doctor` nunca imprime tokens ni API keys. Valida el token con Telegram y consulta Wallbit mediante
+una operación de lectura. En Telegram puedes usar `/estado` para ver métricas en vivo.
 
 ## 5. Backup SQLite (En caliente / Atómico)
 
@@ -79,18 +80,25 @@ O mediante un cron en el host (`crontab -e`):
 0 3 * * * docker exec wallbit-bot python -m app backup --dir /data/backups --keep 7
 ```
 
-Guarda las copias fuera de la VM (por ejemplo en Azure Blob Storage o S3) y prueba su restauración periódicamente. No las subas al repositorio.
+Extrae periódicamente las copias del volumen y guárdalas fuera de la VM (por ejemplo en Azure Blob Storage o S3):
+
+```bash
+docker cp wallbit-bot:/data/backups ./backups-export
+```
+
+Prueba su restauración periódicamente y no las subas al repositorio.
 
 ## 6. Actualizar
 
+Primero ejecuta y exporta un backup. Si desplegaste con Compose:
+
 ```bash
+docker exec wallbit-bot python -m app backup --dir /data/backups --keep 7
+docker cp wallbit-bot:/data/backups ./backups-export
 git pull --ff-only
-docker build -t wallbit-bot:local .
-docker rm -f wallbit-bot
-docker run -d --name wallbit-bot --restart unless-stopped \
-  --env-file .env -e DATABASE_URL=sqlite:////data/wallbit.db \
-  -v "$PWD/data:/data" wallbit-bot:local
+docker compose up -d --build
+docker exec wallbit-bot python -m app doctor
 ```
 
-Antes de actualizar, haz backup de `data/wallbit.db`. Revisa `NIGHTLY_REPORT.md` y las notas
-de versión si se introducen migraciones.
+Si usaste `docker run`, vuelve a crear el contenedor con el mismo volumen `wallbit-data` mostrado en
+la sección 4. Revisa las notas de versión antes de aplicar migraciones.

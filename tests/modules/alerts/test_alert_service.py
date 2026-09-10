@@ -11,6 +11,19 @@ from app.core.constants import (
 from app.modules.alerts.service import AlertService
 
 
+@pytest.mark.parametrize("target", [0, -1, float("nan"), float("inf"), float("-inf")])
+def test_rejects_invalid_alert_target(alert_service: AlertService, db_session, test_user, target):
+    with pytest.raises(ValueError, match="positivo y finito"):
+        alert_service.create_alert(
+            session=db_session,
+            user=test_user,
+            alert_type=ALERT_TYPE_PRICE,
+            symbol="VOO",
+            operator=OPERATOR_GTE,
+            target_value=target,
+        )
+
+
 @pytest.mark.asyncio
 async def test_create_and_trigger_price_alert_gte(alert_service: AlertService, db_session, test_user):
     # VOO is mocked at 495.20

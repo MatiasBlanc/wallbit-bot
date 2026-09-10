@@ -1,5 +1,6 @@
 """Alert service for price and exchange rate threshold notifications."""
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -52,8 +53,8 @@ class AlertService:
     ) -> Alert:
         if operator not in [OPERATOR_GTE, OPERATOR_LTE]:
             raise ValueError(f"Operador no válido: {operator}. Usa '>=' o '<='.")
-        if target_value <= 0:
-            raise ValueError("El valor objetivo debe ser mayor a 0.")
+        if not math.isfinite(target_value) or target_value <= 0:
+            raise ValueError("El valor objetivo debe ser positivo y finito.")
 
         clean_symbol = symbol.upper().strip()
         alert = self.alert_repo.create(

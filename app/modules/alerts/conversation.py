@@ -1,5 +1,7 @@
 """Conversation flow for creating price and FX alerts."""
 
+import math
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CallbackQueryHandler,
@@ -118,7 +120,7 @@ def get_alert_conversation_handler(alert_service: AlertService, user_repo: UserS
         text = update.effective_message.text.strip().replace("$", "")
         try:
             val = float(text)
-            if val <= 0:
+            if not math.isfinite(val) or val <= 0:
                 raise ValueError
         except ValueError:
             await update.effective_message.reply_text("Escribe un número, por ejemplo <b>500</b>.", parse_mode="HTML")

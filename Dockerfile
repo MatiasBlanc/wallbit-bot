@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && chown -R appuser:appuser /app /data
 
 COPY --chown=appuser:appuser app ./app
-COPY --chown=appuser:appuser main.py .env.example ./
+COPY --chown=appuser:appuser main.py ./
 
 USER appuser
 VOLUME ["/data"]

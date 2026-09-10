@@ -7,6 +7,9 @@ import sys
 from collections.abc import Sequence
 from urllib.parse import urlsplit
 
+from telegram import Bot
+from telegram.error import TelegramError
+
 from app.core.config import settings
 from app.infrastructure.database.database import engine, init_db
 from app.infrastructure.wallbit.client import WallbitClient
@@ -35,9 +38,26 @@ async def _check_wallbit() -> bool:
         await client.close()
 
 
+async def _check_telegram() -> bool:
+    """Comprueba el token de Telegram sin iniciar polling.
+
+    Returns:
+        True si Telegram reconoce el bot configurado; False ante token inválido o red no disponible.
+    """
+    if not settings.TELEGRAM_BOT_TOKEN or settings.TELEGRAM_ALLOWED_USER_ID <= 0:
+        return False
+    try:
+        async with Bot(settings.TELEGRAM_BOT_TOKEN) as bot:
+            await bot.get_me()
+        return True
+    except (TelegramError, OSError, ValueError):
+        return False
+
+
 def doctor() -> int:
     """Imprime un diagnóstico sin mostrar secretos ni respuestas financieras."""
-    telegram_ok = bool(settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_ALLOWED_USER_ID > 0)
+    telegram_configured = bool(settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_ALLOWED_USER_ID > 0)
+    telegram_ok = asyncio.run(_check_telegram()) if telegram_configured else False
     wallbit_url = urlsplit(settings.WALLBIT_BASE_URL)
     wallbit_configured = bool(settings.WALLBIT_API_KEY and wallbit_url.scheme == "https" and wallbit_url.hostname)
     database_ok = _check_database()
@@ -51,7 +71,7 @@ def doctor() -> int:
     print(f"AI              {'DISABLED' if not settings.AI_ENABLED else 'ENABLED'}")
     print(f"Trading         {'ENABLED' if settings.TRADING_ENABLED else 'DISABLED'}")
 
-    return 0 if telegram_ok and wallbit_configured and database_ok and scheduler_ok else 1
+    return 0 if telegram_ok and wallbit_ok and database_ok and scheduler_ok else 1
 
 
 def run_backup(target_dir: str = "backups", keep: int = 7) -> int:

@@ -42,15 +42,13 @@ def validate_multi_user_config() -> None:
         None. El modo privado no necesita un secreto adicional.
 
     Raises:
-        ValueError: Si falta cifrado, HTTPS o se intenta habilitar trading multiusuario.
+        ValueError: Si se intenta habilitar multiusuario o la URL de Wallbit no es segura.
     """
     if settings.MULTI_USER_ENABLED:
         raise ValueError("El modo multiusuario no forma parte del producto de instancia única.")
     url = urlsplit(settings.WALLBIT_BASE_URL)
     if url.scheme != "https" or not url.hostname or url.username or url.password:
         raise ValueError("WALLBIT_BASE_URL debe ser HTTPS y no contener credenciales.")
-    if settings.TRADING_ENABLED:
-        raise ValueError("El modo multiusuario solo permite simulación hasta disponer de reconciliación de órdenes.")
 
 
 def issue_login_code(

@@ -1,6 +1,7 @@
+from html import escape
 from typing import TYPE_CHECKING
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 if TYPE_CHECKING:
@@ -69,36 +70,65 @@ def get_status_handler():
     return status_command
 
 
-def get_orders_handler(order_service: "OrderService"):
-    """Manejador para /ordenes (revisión de órdenes con verificación pendiente)."""
+def get_orders_handler(
+    order_service: "OrderService", user_repo: UserSettingsRepository,
+):
+    """Construye `/ordenes` para revisar resultados inciertos sin reintentar compras.
+
+    Args:
+        order_service: Servicio que consulta órdenes en verificación.
+        user_repo: Repositorio que traduce el ID de Telegram al propietario local.
+
+    Returns:
+        Handler autorizado para listar y resolver cada orden manualmente.
+    """
 
     @restricted
     async def orders_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if not update.effective_message:
+        if not update.effective_message or not update.effective_user:
             return
-        user_id = update.effective_user.id
         with get_db_session() as session:
-            unverified = order_service.list_orders_needing_verification(session, user_id)
-            if not unverified:
-                await update.effective_message.reply_text(
-                    "✅ <b>Órdenes al día</b>\n\n"
-                    "No hay órdenes pendientes de verificación por problemas de red o timeouts.",
-                    parse_mode="HTML",
-                )
-                return
+            user = user_repo.get_or_create(session, update.effective_user.id)
+            unverified = order_service.list_orders_needing_verification(session, user.id)
 
-            lines = ["⚠️ <b>Órdenes que requieren verificación manual:</b>\n"]
-            for o in unverified:
-                created = o.created_at.strftime("%Y-%m-%d %H:%M UTC") if o.created_at else "desconocida"
-                lines.append(
-                    f"• ID #{o.id}: <b>{o.ticker}</b> por <b>${o.amount_usd:.2f}</b>\n"
-                    f"  Fecha: <code>{created}</code>\n"
-                    f"  Idempotency Key: <code>{o.idempotency_key}</code>\n"
-                )
-            lines.append(
-                "\n<i>Revisa en tu cuenta de Wallbit si la orden se completó antes de ejecutar una nueva compra.</i>"
+        if not unverified:
+            await update.effective_message.reply_text(
+                "✅ <b>Órdenes al día</b>\n\n"
+                "No hay órdenes pendientes de verificación por problemas de red o timeouts.",
+                parse_mode="HTML",
             )
-            await update.effective_message.reply_text("\n".join(lines), parse_mode="HTML")
+            return
+
+        lines = ["⚠️ <b>Órdenes que requieren verificación manual</b>\n"]
+        keyboard_rows = []
+        for order in unverified:
+            created = order.created_at.strftime("%Y-%m-%d %H:%M UTC") if order.created_at else "desconocida"
+            lines.append(
+                f"• ID #{order.id}: <b>{escape(order.ticker)}</b> por <b>${order.amount_usd:.2f}</b>\n"
+                f"  Fecha: <code>{created}</code>\n"
+                f"  Clave: <code>{escape(order.idempotency_key)}</code>\n"
+            )
+            keyboard_rows.append(
+                [
+                    InlineKeyboardButton(
+                        f"✅ #{order.id} ejecutada",
+                        callback_data=f"order_reconcile:executed:{order.id}",
+                    ),
+                    InlineKeyboardButton(
+                        f"❌ #{order.id} no ejecutada",
+                        callback_data=f"order_reconcile:failed:{order.id}",
+                    ),
+                ]
+            )
+        lines.append(
+            "\n<i>Primero comprueba la operación en Wallbit. Esta decisión actualiza "
+            "el historial local y no envía otra compra.</i>"
+        )
+        await update.effective_message.reply_text(
+            "\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard_rows),
+        )
 
     return orders_command
 

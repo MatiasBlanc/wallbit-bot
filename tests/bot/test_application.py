@@ -38,7 +38,7 @@ def test_application_registers_all_routes(
     assert sorted(commands) == sorted(expected_commands)
     patterns = [handler.pattern.pattern for handler in handlers if isinstance(handler, CallbackQueryHandler)]
     assert set(patterns) == {
-        r"^order_confirm:", r"^order_skip:",
+        r"^order_confirm:", r"^order_skip:", r"^order_reconcile:(?:executed|failed):[1-9]\d*$",
         r"^dca_menu:active(?::[1-9]\d*)?$", r"^dca_menu:paused(?::[1-9]\d*)?$", r"^dca_menu:back$", r"^dca_menu:close$",
         r"^dca_pause:", r"^dca_resume:", r"^dca_delete:",
         r"^alert_menu:list(?::[1-9]\d*)?$", r"^alert_menu:back$", r"^alert_menu:close$", r"^alert_delete:",

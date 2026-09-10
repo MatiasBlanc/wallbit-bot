@@ -1,5 +1,6 @@
 """DCA Service for managing periodic investment rules and executions."""
 
+import math
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -64,10 +65,29 @@ class DCAService:
         frequency: str,
         weekday: int | None = None,
         day_of_month: int | None = None,
+        asset_name: str | None = None,
     ) -> DCARule:
-        """Create a new DCA rule with next execution scheduled."""
-        if amount_usd <= 0:
-            raise ValueError("El monto debe ser mayor a 0.")
+        """Crea una regla DCA y calcula su próxima ejecución.
+
+        Args:
+            session: Sesión que persistirá la regla.
+            user: Propietario y fuente de zona horaria y hora de ejecución.
+            ticker: Símbolo del activo.
+            amount_usd: Importe positivo de cada compra propuesta.
+            frequency: Frecuencia semanal o mensual soportada.
+            weekday: Día semanal entre 0 y 6 cuando corresponda.
+            day_of_month: Día mensual cuando corresponda.
+            asset_name: Nombre opcional del activo para mostrar en Telegram.
+
+        Returns:
+            Regla DCA persistida con su próxima fecha de ejecución.
+
+        Raises:
+            ValueError: Si el importe o la frecuencia no son válidos.
+            sqlalchemy.exc.SQLAlchemyError: Si falla la persistencia.
+        """
+        if not math.isfinite(amount_usd) or amount_usd <= 0:
+            raise ValueError("El monto debe ser positivo y finito.")
         if frequency not in [DCA_FREQ_WEEKLY, DCA_FREQ_MONTHLY]:
             raise ValueError(f"Frecuencia '{frequency}' no válida.")
 
@@ -88,6 +108,7 @@ class DCAService:
             next_execution_at=next_exec,
             weekday=weekday,
             day_of_month=day_of_month,
+            asset_name=asset_name,
         )
         logger.info(f"dca_created rule_id={rule.id} ticker={rule.ticker} amount={rule.amount_usd} next={next_exec}")
         return rule

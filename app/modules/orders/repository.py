@@ -1,14 +1,16 @@
 """Pending orders repository with idempotency support."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import or_, update
 from sqlalchemy.orm import Session
 
 from app.core.constants import (
     ORDER_STATUS_CONFIRMED,
+    ORDER_STATUS_EXECUTED,
     ORDER_STATUS_EXPIRED,
     ORDER_STATUS_PENDING,
+    ORDER_STATUS_UNKNOWN,
 )
 from app.modules.orders.models import PendingOrder
 
@@ -119,9 +121,28 @@ class PendingOrderRepository:
             .all()
         )
 
+    def recover_interrupted_orders(self, session: Session) -> int:
+        """Mueve a verificación las órdenes interrumpidas durante un envío.
+
+        Args:
+            session: Sesión de arranque; el llamador confirma la transacción.
+
+        Returns:
+            Cantidad de órdenes que estaban en proceso cuando terminó la instancia anterior.
+
+        Raises:
+            sqlalchemy.exc.SQLAlchemyError: Si falla la actualización.
+        """
+        result = session.execute(
+            update(PendingOrder)
+            .where(PendingOrder.status == ORDER_STATUS_CONFIRMED)
+            .values(status=ORDER_STATUS_UNKNOWN)
+            .execution_options(synchronize_session=False)
+        )
+        return result.rowcount
+
     def list_unverified_orders(self, session: Session, user_id: int) -> list[PendingOrder]:
         """Obtiene órdenes que quedaron en verificación requerida por timeouts o fallas de red."""
-        from app.core.constants import ORDER_STATUS_UNKNOWN
         return (
             session.query(PendingOrder)
             .filter(
@@ -141,7 +162,6 @@ class PendingOrderRepository:
         external_order_id: str | None = None,
     ) -> bool:
         """Resuelve manualmente una orden que requería verificación tras consultar Wallbit."""
-        from app.core.constants import ORDER_STATUS_UNKNOWN
         order = (
             session.query(PendingOrder)
             .filter(
@@ -156,6 +176,8 @@ class PendingOrderRepository:
         order.status = resolved_status
         if external_order_id:
             order.external_order_id = external_order_id
+        if resolved_status == ORDER_STATUS_EXECUTED:
+            order.executed_at = datetime.now(timezone.utc)
         session.flush()
         return True
 

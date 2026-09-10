@@ -83,3 +83,60 @@ def get_order_callbacks(order_service: OrderService, user_repo: UserSettingsRepo
         )
 
     return handle_order_confirm, handle_order_skip
+
+
+def get_order_reconciliation_callback(
+    order_service: OrderService, user_repo: UserSettingsRepository,
+):
+    """Construye el callback que resuelve órdenes tras verificarlas en Wallbit.
+
+    Args:
+        order_service: Servicio que aplica la transición atómica y registra el historial.
+        user_repo: Repositorio usado para resolver el propietario local autorizado.
+
+    Returns:
+        Handler que marca una orden incierta como ejecutada o no ejecutada.
+    """
+
+    @restricted
+    async def handle_order_reconciliation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        query = update.callback_query
+        if query is None or update.effective_user is None or not query.data:
+            return
+
+        try:
+            _, resolution, raw_order_id = query.data.split(":", 2)
+            order_id = int(raw_order_id)
+            if resolution not in {"executed", "failed"}:
+                raise ValueError
+        except ValueError:
+            await query.answer("Resolución de orden inválida.", show_alert=True)
+            return
+
+        with get_db_session() as session:
+            user = user_repo.get_or_create(session, update.effective_user.id)
+            is_resolved = order_service.reconcile_order(
+                session=session,
+                user_id=user.id,
+                order_id=order_id,
+                was_executed_on_wallbit=resolution == "executed",
+            )
+
+        if not is_resolved:
+            await query.answer("La orden ya fue resuelta o no te pertenece.", show_alert=True)
+            return
+
+        await query.answer("Orden reconciliada.")
+        if resolution == "executed":
+            message = (
+                f"✅ <b>Orden #{order_id} marcada como ejecutada</b>\n\n"
+                "Se agregó al historial local. No se envió una nueva compra a Wallbit."
+            )
+        else:
+            message = (
+                f"❌ <b>Orden #{order_id} marcada como no ejecutada</b>\n\n"
+                "No se envió una nueva compra a Wallbit."
+            )
+        await query.edit_message_text(message, parse_mode="HTML")
+
+    return handle_order_reconciliation

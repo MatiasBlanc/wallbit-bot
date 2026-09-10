@@ -6,6 +6,19 @@ from app.core.constants import DCA_FREQ_MONTHLY, DCA_FREQ_WEEKLY, ORDER_STATUS_P
 from app.modules.dca.service import DCAService
 
 
+@pytest.mark.parametrize("amount", [0, -1, float("nan"), float("inf"), float("-inf")])
+def test_create_dca_rule_rejects_invalid_amount(dca_service: DCAService, db_session, test_user, amount):
+    with pytest.raises(ValueError, match="positivo y finito"):
+        dca_service.create_rule(
+            session=db_session,
+            user=test_user,
+            ticker="VOO",
+            amount_usd=amount,
+            frequency=DCA_FREQ_WEEKLY,
+            weekday=0,
+        )
+
+
 @pytest.mark.asyncio
 async def test_create_dca_rule_weekly(dca_service: DCAService, db_session, test_user):
     rule = dca_service.create_rule(
@@ -25,6 +38,21 @@ async def test_create_dca_rule_weekly(dca_service: DCAService, db_session, test_
     assert rule.weekday == 0
     assert rule.enabled is True
     assert rule.next_execution_at is not None
+
+
+def test_create_dca_rule_preserves_asset_name(dca_service: DCAService, db_session, test_user):
+    rule = dca_service.create_rule(
+        session=db_session,
+        user=test_user,
+        ticker="VOO",
+        amount_usd=50.0,
+        frequency=DCA_FREQ_WEEKLY,
+        weekday=0,
+        asset_name="Vanguard S&P 500 ETF",
+    )
+    db_session.commit()
+
+    assert rule.asset_name == "Vanguard S&P 500 ETF"
 
 
 @pytest.mark.asyncio

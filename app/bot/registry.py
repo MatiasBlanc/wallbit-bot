@@ -21,7 +21,7 @@ from app.modules.dca.service import DCAService
 from app.modules.history.callbacks import get_history_callback
 from app.modules.history.handler import get_history_handler
 from app.modules.history.service import HistoryService
-from app.modules.orders.callbacks import get_order_callbacks
+from app.modules.orders.callbacks import get_order_callbacks, get_order_reconciliation_callback
 from app.modules.orders.service import OrderService
 from app.modules.portfolio.handler import get_investments_handler
 from app.modules.portfolio.service import PortfolioService
@@ -133,6 +133,12 @@ def register_order_handlers(
     confirm_callback, skip_callback = get_order_callbacks(service, user_repo)
     application.add_handler(CallbackQueryHandler(confirm_callback, pattern=r"^order_confirm:"))
     application.add_handler(CallbackQueryHandler(skip_callback, pattern=r"^order_skip:"))
+    application.add_handler(
+        CallbackQueryHandler(
+            get_order_reconciliation_callback(service, user_repo),
+            pattern=r"^order_reconcile:(?:executed|failed):[1-9]\d*$",
+        )
+    )
 
 
 def register_history_handlers(
@@ -238,7 +244,7 @@ def register_handlers(
 
     application.add_handler(CommandHandler("start", get_start_handler(client, user_repo)))
     application.add_handler(CommandHandler(["estado", "status"], get_status_handler()))
-    application.add_handler(CommandHandler("ordenes", get_orders_handler(order_service)))
+    application.add_handler(CommandHandler("ordenes", get_orders_handler(order_service, user_repo)))
     register_balance_handlers(application, balance_service, user_repo)
     register_portfolio_handlers(application, portfolio_service, user_repo)
     register_report_handlers(application, report_service, user_repo)

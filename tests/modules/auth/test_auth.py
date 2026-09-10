@@ -133,6 +133,14 @@ def test_unsafe_configuration_rejected(multi_user, monkeypatch, setting, value):
         validate_multi_user_config()
 
 
+def test_single_user_real_trading_is_allowed_by_runtime_validation(monkeypatch):
+    monkeypatch.setattr(settings, "MULTI_USER_ENABLED", False)
+    monkeypatch.setattr(settings, "TRADING_ENABLED", True)
+    monkeypatch.setattr(settings, "WALLBIT_BASE_URL", "https://api.wallbit.io")
+
+    validate_multi_user_config()
+
+
 async def test_restricted_requires_login_and_private_chat(multi_user):
     called = AsyncMock()
     handler = restricted(called)

@@ -5,7 +5,12 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.core.config import settings
-from app.core.constants import ORDER_STATUS_PENDING
+from app.core.constants import (
+    ORDER_STATUS_CONFIRMED,
+    ORDER_STATUS_EXECUTED,
+    ORDER_STATUS_PENDING,
+    ORDER_STATUS_UNKNOWN,
+)
 from app.shared.datetime import ensure_utc
 
 
@@ -45,8 +50,20 @@ async def test_manual_intent_can_be_confirmed(
     mock_wallbit_client.create_trade.assert_not_called()
 
 
+def test_interrupted_order_requires_verification_after_restart(order_service, db_session, test_user):
+    order = order_service.create_pending_order(db_session, test_user, "AAPL", 100.0)
+    order_service.order_repo.update_status(db_session, order, ORDER_STATUS_CONFIRMED)
+    db_session.commit()
+
+    recovered = order_service.order_repo.recover_interrupted_orders(db_session)
+    db_session.commit()
+
+    assert recovered == 1
+    db_session.refresh(order)
+    assert order.status == ORDER_STATUS_UNKNOWN
+
+
 def test_reconcile_unverified_order(order_service, db_session, test_user):
-    from app.core.constants import ORDER_STATUS_EXECUTED, ORDER_STATUS_UNKNOWN
     order = order_service.create_pending_order(db_session, test_user, "AAPL", 100.0)
     order_service.order_repo.update_status(db_session, order, ORDER_STATUS_UNKNOWN)
     db_session.commit()

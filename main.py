@@ -5,7 +5,7 @@ import sys
 from app.bot.application import create_bot_application
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
-from app.infrastructure.database.database import init_db
+from app.infrastructure.database.database import get_db_session, init_db
 from app.infrastructure.scheduler.scheduler import BotScheduler
 from app.infrastructure.wallbit.client import WallbitClient
 from app.infrastructure.wallbit.health import WallbitHealth
@@ -35,16 +35,21 @@ def main() -> None:
 
     validate_multi_user_config()
 
-    # Validate essential environment variables
-    if not settings.TELEGRAM_BOT_TOKEN:
-        logger.error("TELEGRAM_BOT_TOKEN is not set in environment or .env file.")
-        print("ERROR: TELEGRAM_BOT_TOKEN is missing. Please check your .env file.")
-        sys.exit(1)
-
-    if not settings.MULTI_USER_ENABLED and not settings.TELEGRAM_ALLOWED_USER_ID:
-        logger.warning(
-            "TELEGRAM_ALLOWED_USER_ID is not configured. The bot will reject all interactions for security."
+    # La instancia privada no puede funcionar sin sus tres credenciales obligatorias.
+    missing_settings = [
+        name
+        for name, value in (
+            ("TELEGRAM_BOT_TOKEN", settings.TELEGRAM_BOT_TOKEN),
+            ("TELEGRAM_ALLOWED_USER_ID", settings.TELEGRAM_ALLOWED_USER_ID),
+            ("WALLBIT_API_KEY", settings.WALLBIT_API_KEY),
         )
+        if not value
+    ]
+    if missing_settings:
+        missing_names = ", ".join(missing_settings)
+        logger.error("Faltan variables obligatorias: %s", missing_names)
+        print(f"ERROR: faltan variables obligatorias en .env: {missing_names}")
+        sys.exit(1)
 
     # Initialize Database
     logger.info("Setting up database tables...")
@@ -61,6 +66,13 @@ def main() -> None:
     user_repo = UserSettingsRepository()
     dca_repo = DCARuleRepository()
     order_repo = PendingOrderRepository()
+    with get_db_session() as session:
+        interrupted_orders = order_repo.recover_interrupted_orders(session)
+    if interrupted_orders:
+        logger.warning(
+            "%s órdenes interrumpidas pasaron a verificación manual.",
+            interrupted_orders,
+        )
     alert_repo = AlertRepository()
     tx_repo = LocalTransactionRepository()
 

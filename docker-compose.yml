@@ -10,9 +10,13 @@ services:
     environment:
       - DATABASE_URL=sqlite:////data/wallbit.db
     volumes:
-      - ./data:/data
+      - wallbit-data:/data
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  wallbit-data:
+    name: wallbit-data

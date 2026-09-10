@@ -1,5 +1,7 @@
 """Conversation flow for creating a new DCA rule."""
 
+import math
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CallbackQueryHandler,
@@ -85,7 +87,7 @@ def get_dca_conversation_handler(dca_service: DCAService, user_repo: UserSetting
         text = update.effective_message.text.strip().replace("$", "")
         try:
             amount = float(text)
-            if amount <= 0:
+            if not math.isfinite(amount) or amount <= 0:
                 raise ValueError
         except ValueError:
             await update.effective_message.reply_text(
