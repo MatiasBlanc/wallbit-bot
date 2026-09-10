@@ -35,36 +35,33 @@ Si descubrís una vulnerabilidad de seguridad, por favor seguí estos pasos:
 
 ### Datos sensibles
 
-- En modo privado la API key se obtiene del entorno; en multiusuario se introduce desde una terminal privada y se almacena **cifrada con Fernet**.
-- `CREDENTIAL_ENCRYPTION_KEY` debe mantenerse fuera de la base de datos, con backup separado y acceso restringido. Quien controle servidor y clave podrá descifrar las credenciales.
-- Nunca se solicitan API keys ni contraseñas de Wallbit por Telegram. El login usa códigos temporales ligados a un ID, almacenados como hash y consumidos atómicamente.
-- Los logs sanitizan secretos conocidos y la credencial del contexto activo; el formatter también sanitiza excepciones y objetos anidados. No se deben registrar cuerpos de actualizaciones ni credenciales fuera del contexto.
+- La API key se obtiene exclusivamente del entorno local de la instancia.
+- Nunca se solicitan API keys ni contraseñas de Wallbit por Telegram.
+- Los logs sanitizan secretos conocidos, excepciones y objetos anidados. No deben registrarse cuerpos de actualizaciones ni credenciales.
 - El archivo `.env` está incluido en `.gitignore` y **nunca** debe ser commiteado
 - Se provee `.env.example` como plantilla sin datos reales
 
 ### Acceso al bot
 
-- Por defecto el bot está restringido a un usuario mediante `TELEGRAM_ALLOWED_USER_ID`.
-- Con `MULTI_USER_ENABLED=true`, Telegram identifica al usuario y `/login` vincula su credencial individual. Las consultas financieras solo se aceptan en chats privados; nunca se utiliza la API key global como fallback.
-- `@restricted` protege las rutas financieras. `/login` y `/logout` son rutas públicas que solo operan sobre el ID del remitente.
-- Los códigos vencen, son de un uso y solo sirven para el destinatario. Las sesiones permanecen activas hasta `/logout`; no se implementa OAuth ni autenticación web.
-- `/logout` desactiva la cuenta, pausa automatizaciones y expira pendientes, pero conserva historial y credencial cifrada. Revocar definitivamente la API key requiere hacerlo también en Wallbit; las solicitudes ya en curso pueden terminar.
-- Los usuarios sin autorización reciben un rechazo explícito. Los callbacks de modificación verifican la propiedad del registro.
+- El bot está restringido a un único usuario mediante `TELEGRAM_ALLOWED_USER_ID`.
+- `@restricted` protege comandos y callbacks financieros.
+- No existe login, registro, OAuth ni almacenamiento de credenciales de terceros.
+- Los usuarios sin autorización reciben un rechazo explícito y los callbacks de modificación vuelven a verificar la propiedad del registro.
 
 ### Operaciones financieras
 
 - Por defecto, el modo trading está **deshabilitado** (`TRADING_ENABLED=false`)
 - Todas las compras requieren **confirmación manual** del usuario
-- El modo multiusuario bloquea las compras reales, incluso si se intenta invocar directamente al cliente HTTP, hasta implementar reconciliación externa.
-- Las órdenes POST a la API **nunca** se reintentan automáticamente
-- Las órdenes pendientes expiran automáticamente tras un período configurable
+- Las órdenes POST a la API **nunca** se reintentan automáticamente.
+- Un resultado incierto requiere revisión manual mediante `/ordenes`.
+- Las órdenes interrumpidas durante un reinicio se recuperan en estado de verificación.
+- Las órdenes pendientes expiran automáticamente tras un período configurable.
 
 ### Base de datos
 
 - SQLite se usa como almacenamiento local (no accesible remotamente)
-- No se almacenan contraseñas ni API keys **en texto plano**. El modo multiusuario añade credenciales cifradas en `wallbit_credentials`.
-- Usa una base nueva al migrar del modo privado: no se vinculan automáticamente registros antiguos a una cuenta externa no verificada.
-- El despliegue actual requiere una única réplica y almacenamiento persistente con copias de seguridad.
+- No se almacenan contraseñas ni API keys en SQLite; las credenciales permanecen en el entorno.
+- El despliegue requiere una única réplica y almacenamiento persistente con copias de seguridad.
 
 ## Dependencias
 

@@ -1,339 +1,548 @@
-# Wallbit Assistant Bot 🤖📈
+<div align="center">
 
+# Wallbit Assistant Bot
+
+### Tu cuenta de Wallbit, monitoreada desde Telegram
+
+Consulta saldos e inversiones, configura alertas y DCA, recibe reportes automáticos y analiza tu cartera con IA opcional; todo desde una instancia privada que tú controlas.
+
+[![CI](https://github.com/MatiasBlanc/wallbit-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/MatiasBlanc/wallbit-bot/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](Dockerfile)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/Tests-pytest-brightgreen.svg)](#-pruebas-automatizadas-tests)
-[![Code Style: Ruff](https://img.shields.io/badge/Code%20Style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**Wallbit Assistant Bot** es un bot personal de Telegram desarrollado en **Python 3.12+** que se conecta a la API pública de Wallbit para consultar saldos, portafolio de inversiones, cotizaciones, historial de movimientos y ejecutar compras recurrentes (DCA) mediante confirmación manual e idempotente.
+**Privado por defecto · Self-hosted · Una persona por instancia · Trading desactivado inicialmente**
 
-Está construido como un **monolito modular con responsabilidades claramente separadas**, priorizando la **seguridad**, la **exactitud de datos**, la **idempotencia en compras** y la **prevención de órdenes accidentales o duplicadas**.
+</div>
 
----
-
-## 📑 Tabla de Contenidos
-
-1. [Características Principales](#-características-principales)
-2. [Arquitectura del Sistema](#-arquitectura-del-sistema)
-3. [Comandos y Flujos](#-comandos-y-flujos)
-4. [Requisitos Previos](#-requisitos-previos)
-5. [Instalación](#-instalación)
-6. [Configuración](#-configuración)
-   - [Variables de Entorno](#variables-de-entorno)
-   - [Crear Bot en Telegram con BotFather](#crear-bot-en-telegram-con-botfather)
-   - [Obtener tu TELEGRAM_ALLOWED_USER_ID](#obtener-tu-telegram_allowed_user_id)
-   - [Obtener tu API Key de Wallbit](#obtener-tu-api-key-de-wallbit)
-7. [Modo Simulación / Dry-Run (Seguridad Financiera)](#-modo-simulación--dry-run-seguridad-financiera)
-8. [Ejecución](#-ejecución)
-9. [Pruebas Automatizadas (Tests)](#-pruebas-automatizadas-tests)
-10. [Advertencia sobre Dinero Real](#-advertencia-sobre-dinero-real)
-11. [Contribuir](#-contribuir)
-12. [Licencia](#-licencia)
+> [!IMPORTANT]
+> Este es un proyecto comunitario y **no es un producto oficial de Wallbit**. No ofrece asesoramiento financiero. Empieza siempre con `TRADING_ENABLED=false`: así puedes probar todo el flujo sin enviar compras reales.
 
 ---
 
-## 🚀 Características Principales
+## ¿Qué puedes hacer?
 
-- 💰 **Consulta de Saldo (`/saldo`)**: Muestra cuenta Checking, Cash de inversión, Saldo disponible total y Patrimonio total, con conversión automática a moneda local (CLP, ARS, EUR, USDC, etc.).
-- 📊 **Portafolio de Inversiones (`/inv` y `/inv [ticker]`)**: Vista consolidada y detalle por activo (acciones/ETFs), precio actual, títulos, costo base y rentabilidad sin inventar métricas si la API no las suministra.
-- 📈 **Dollar-Cost Averaging Determinístico (`/dca`)**: Reglas de inversión programadas (semanales o mensuales) con **confirmación manual obligatoria** previa a cualquier compra.
-- 🛡️ **Idempotencia Estricta**: Cada orden pendiente posee una clave única (`idempotency_key`) que previene doble ejecución por clics repetidos o problemas de red.
-- 🔔 **Alertas de Precio y Divisa (`/alerta`)**: Monitoreo periódico en segundo plano con operadores `>=` y `<=`. Se marcan como disparadas para evitar notificaciones repetidas.
-- ☀️ **Reporte Matutino Automático y Manual (`/reporte`)**: Resumen financiero enviado a la hora configurada (ej. 09:00 en tu zona horaria) que evita reportes duplicados al reiniciar la app.
-- 🧾 **Historial de Movimientos (`/historial`)**: Consulta de transacciones de Wallbit complementadas con el registro local, con paginación interactiva.
-- ⚙️ **Configuración Interactiva (`/config`)**: Personaliza moneda por defecto, hora matutina, zona horaria y verifica el estado de conexión con Wallbit mediante botones.
-- 🔒 **Instancia privada de usuario único**: todas las actualizaciones y callbacks requieren `TELEGRAM_ALLOWED_USER_ID`.
-- 🤖 **Advisor con IA Real (`/analizar`)**: análisis de solo lectura mediante Google Gemini u OpenAI con herramientas tipadas; no puede ejecutar operaciones.
-- ⚠️ **Gestión de Órdenes (`/ordenes`)**: inspecciona órdenes en `verification_required` para prevenir compras duplicadas si hubo problemas de red.
-- 📈 **Observabilidad y Métricas (`/estado` o `/status`)**: latencias de API en tiempo real, estado de jobs en segundo plano y uptime.
-- 💾 **Respaldos Atómicos (`python -m app backup`)**: copia consistente en caliente de SQLite con rotación configurable sin parar el bot.
-- 🧹 **Sanitización de logs**: Enmascara secretos globales y la credencial del contexto activo, incluidos objetos y tracebacks.
+| Función | Qué obtienes |
+|---|---|
+| 💰 **Saldo** | Checking, cash de inversión, disponible, patrimonio y conversión de moneda |
+| 📊 **Portafolio** | Posiciones, precio actual, costo conocido y rentabilidad disponible |
+| 📅 **DCA** | Reglas semanales o mensuales que siempre piden confirmación antes de comprar |
+| 🔔 **Alertas** | Avisos de precio de acciones/ETF y tipos de cambio |
+| ☀️ **Reportes** | Resumen financiero manual y envío diario programado |
+| 🧾 **Historial** | Movimientos de Wallbit complementados con operaciones locales |
+| 🤖 **Advisor IA** | Análisis de riesgo, concentración y rendimiento con Gemini u OpenAI |
+| 🛡️ **Órdenes seguras** | Idempotencia local, expiración y reconciliación tras timeouts |
+| 📈 **Estado** | Uptime, salud de jobs, llamadas a Wallbit y latencia media |
+| 💾 **Backups** | Copias atómicas de SQLite sin detener el bot |
 
----
-
-## 🏛 Arquitectura del Sistema
-
-El bot es un monolito modular organizado por dominio, con infraestructura y utilidades transversales separadas:
+## Cómo funciona
 
 ```text
-wallbit-bot/
-├── app/
-│   ├── core/                       # Configuración, constantes, seguridad y logging
-│   ├── infrastructure/
-│   │   ├── database/               # Base ORM compartida, engine y sesiones
-│   │   ├── wallbit/                # Cliente HTTP, excepciones y schemas externos
-│   │   └── scheduler/              # Configuración de APScheduler
-│   ├── modules/
-│   │   ├── balance/                # Consulta de saldos
-│   │   ├── portfolio/              # Inversiones y rentabilidad
-│   │   ├── dca/                    # Reglas, repositorio, servicio, UI y jobs DCA
-│   │   ├── alerts/                 # Alertas, repositorio, servicio, UI y jobs
-│   │   ├── orders/                 # Órdenes pendientes, confirmación y expiración
-│   │   ├── history/                # Historial local y remoto, con paginación
-│   │   ├── reports/                # Reportes manuales y programados
-│   │   ├── advisor/                # IA opcional de solo lectura
-│   │   └── settings/               # Preferencias y configuración interactiva
-│   ├── bot/
-│   │   ├── application.py          # Construcción de Telegram
-│   │   ├── registry.py             # Registro de rutas por módulo
-│   │   ├── commands.py             # Comando transversal /start
-│   │   └── error_handler.py        # Manejo global de errores
-│   └── shared/                     # Formateo, fechas y conversión de divisas
-├── tests/                          # Módulos, infraestructura, bot, core y shared
-├── main.py                         # Composición de dependencias y ciclo de vida
-└── .env.example                    # Plantilla de variables de entorno
+Telegram
+   │
+   ├── Consultas ───────────────► Wallbit API (solo lectura)
+   │
+   ├── DCA programado
+   │      └──► Orden pendiente ─► Confirmación en Telegram
+   │                                  ├── Simulación (por defecto)
+   │                                  └── Compra real (opt-in)
+   │
+   └── Alertas / reportes ──────► APScheduler
+                                      │
+                                      └── Estado local en SQLite
 ```
 
-Cada dominio contiene sus handlers, servicios, repositorios, modelos y jobs cuando los necesita; no se crean capas vacías. Los DTOs de Wallbit viven en `app/infrastructure/wallbit/schemas/`.
-
-Los modelos ORM pertenecen a sus módulos y comparten `app/infrastructure/database/base.py`. `init_db()` registra todos antes de crear las tablas y aplica migraciones SQLite aditivas para instalaciones V1 existentes. La base es local y pertenece a una única instancia.
-
-### Flujo de Datos
-
-```text
-Telegram → Handler del módulo → Servicio → Repositorio / Cliente externo
-                                               ↓               ↓
-                                             SQLite         Wallbit
-
-DCAService → OrderService.create_pending_order() → Confirmación manual en Telegram
-                                                       ↓
-                                            OrderService.confirm_order()
-                                                       ↓
-                                          Simulación o compra en Wallbit
-```
-
-DCA decide cuándo proponer una compra; Orders administra su vencimiento, clave de idempotencia y ejecución. `ReportService` compone los servicios de saldo, portafolio y divisas. Las conversaciones se registran antes que los comandos y callbacks para conservar su prioridad.
+El bot usa **polling**, por lo que no necesita dominio, webhook ni puerto HTTP público.
 
 ---
 
-## 💬 Comandos y Flujos
+## Inicio rápido con Docker — recomendado
 
-| Comando | Descripción |
-| :--- | :--- |
-| `/start` | Presentación, diagnóstico de conexión con Wallbit y menú de inicio |
-| `/saldo` | Saldo en Checking, Cash de inversión, Disponible y conversión a moneda local |
-| `/saldo [moneda]` | Saldo convertido a divisa específica (ej: `/saldo eur`, `/saldo ars`) |
-| `/inv` | Resumen de todo tu portafolio de activos |
-| `/inv [ticker]` | Detalle de posición individual (ej: `/inv voo`, `/inv aapl`) |
-| `/dca` | Menú interactivo: Crear regla, ver reglas activas, ver pausadas |
-| `/alerta` | Menú interactivo: Crear alerta (precio o divisa), ver mis alertas |
-| `/historial` | Últimos movimientos con paginación `[⬅️ Anterior]` `[Siguiente ➡️]` |
-| `/reporte` | Resumen financiero bajo demanda |
-| `/analizar` | Análisis IA opcional, siempre de solo lectura |
-| `/config` | Configurar moneda, hora del reporte, zona horaria y alertas |
-| `/cancel` | Cancelar cualquier conversación en curso |
+### 1. Requisitos
 
----
+- Una cuenta de [Wallbit](https://wallbit.io) con acceso a su API pública.
+- Un bot de Telegram creado con [@BotFather](https://t.me/BotFather).
+- Tu ID numérico de Telegram.
+- Docker con Docker Compose.
 
-## 📦 Requisitos Previos
-
-- **Python 3.12 o superior**
-- Cuenta activa en **Wallbit** con API Key generada
-- Bot de Telegram registrado con **@BotFather**
-
----
-
-## 🔧 Instalación rápida
+### 2. Clona y configura
 
 ```bash
-git clone <URL_DEL_REPOSITORIO> wallbit-bot
+git clone https://github.com/MatiasBlanc/wallbit-bot.git
 cd wallbit-bot
 cp .env.example .env
-# Edita TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USER_ID y WALLBIT_API_KEY
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python main.py
+chmod 600 .env
 ```
 
-### Instalación manual
+Edita `.env` y completa como mínimo:
 
-1. Clona el repositorio o navega a la carpeta del proyecto:
-   ```bash
-   cd wallbit-bot
-   ```
+```env
+TELEGRAM_BOT_TOKEN=token_entregado_por_botfather
+TELEGRAM_ALLOWED_USER_ID=123456789
+WALLBIT_API_KEY=tu_api_key_de_wallbit
 
-2. Crea y activa un entorno virtual:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
+# Mantén este valor durante todas las pruebas iniciales.
+TRADING_ENABLED=false
+```
 
-3. Instala las dependencias:
-   ```bash
-   pip install -r requirements.txt
-   ```
+> [!WARNING]
+> No pegues secretos en issues, capturas, mensajes de Telegram ni archivos versionados. `.env` ya está ignorado por Git.
 
----
+### 3. Construye y valida
 
-## ⚙️ Configuración
-
-Copia el archivo `.env.example` a `.env`:
 ```bash
-cp .env.example .env
+docker compose build
+docker compose run --rm wallbit-bot python -m app doctor
 ```
 
-### Variables de Entorno
+Una instalación correcta muestra:
 
-| Variable | Requerido | Descripción | Ejemplo |
-| :--- | :---: | :--- | :--- |
-| `TELEGRAM_BOT_TOKEN` | Sí | Token del bot de Telegram entregado por BotFather | `7123456789:AAH...` |
-| `TELEGRAM_ALLOWED_USER_ID` | Modo privado | Tu ID numérico de Telegram (solo tú podrás usar el bot) | `123456789` |
-| `WALLBIT_API_KEY` | Sí | Clave de API local generada en Wallbit Dashboard | `wb_live_...` |
-| `WALLBIT_BASE_URL` | No | URL base de la API pública de Wallbit | `https://api.wallbit.io` |
-| `WALLBIT_PLAN` | No | Plan para estimar la comisión de compra (`classic`, `pro`, `max`) | `classic` |
-| `WALLBIT_CACHE_TTL_SECONDS` | No | Caché corta de metadata/cotizaciones (no confirma órdenes) | `5` |
-| `DATABASE_URL` | No | Conexión a la base de datos SQLite | `sqlite:///wallbit.db` |
-| `DEFAULT_CURRENCY` | No | Moneda para conversiones locales (`CLP`, `USD`, `ARS`, `EUR`, `USDC`) | `CLP` |
-| `DEFAULT_TIMEZONE` | No | Zona horaria IANA para reportes y ejecuciones | `America/Santiago` |
-| `DEFAULT_REPORT_TIME` | No | Hora para el reporte diario matutino (HH:MM) | `09:00` |
-| `TRADING_ENABLED` | No | `false` = simulación (recomendado); `true` = órdenes reales | `false` |
-| `AI_ENABLED` | No | Activa el advisor opcional de solo lectura | `false` |
-| `AI_PROVIDER` | No | Provider disponible (`mock` por defecto) | `mock` |
-| `WALLSYNC_ENABLED` | No | Reservado para integración oficial; por defecto desactivado | `false` |
-| `FX_CACHE_TTL_SECONDS` | No | Caché corta de tipos de cambio | `300` |
-| `LOG_LEVEL` | No | Nivel de logging (`INFO`, `DEBUG`, `WARNING`, `ERROR`) | `INFO` |
+```text
+Telegram        OK
+Wallbit         OK
+Database        OK
+Scheduler       OK
+AI              DISABLED
+Trading         DISABLED
+```
 
-### Crear Bot en Telegram con BotFather
+`doctor` valida el token con Telegram, realiza una consulta de lectura a Wallbit y comprueba SQLite y APScheduler. Nunca imprime tus secretos.
 
-1. Abre Telegram y busca a [@BotFather](https://t.me/BotFather).
-2. Envía `/newbot` y sigue las instrucciones para elegir un nombre y un username (debe terminar en `bot`).
-3. Copia el token de acceso generado y colócalo en `TELEGRAM_BOT_TOKEN`.
+### 4. Inicia el bot
 
-### Obtener tu TELEGRAM_ALLOWED_USER_ID
+```bash
+docker compose up -d
+docker compose logs -f --tail 100
+```
 
-1. En Telegram, busca a [@userinfobot](https://t.me/userinfobot) o [@raw_data_bot](https://t.me/raw_data_bot).
-2. Envía cualquier mensaje y te responderá con tu **Id** numérico (por ejemplo `123456789`).
-3. Colócalo en `TELEGRAM_ALLOWED_USER_ID`.
+Abre tu bot en Telegram y envía:
 
-### Obtener tu API Key de Wallbit
+```text
+/start
+```
 
-1. Ingresa a tu cuenta en [Wallbit](https://wallbit.io) desde la app o dashboard.
-2. Ve a **Configuración → API Keys** (Settings → API Keys).
-3. Para consultas usa permisos de lectura. Solo habilita permisos de transacción si has
-   revisado el flujo y aceptas operar con `TRADING_ENABLED=true`.
-4. Guarda la clave únicamente en `.env`; nunca la subas a Git ni la envíes por Telegram.
+Docker Compose conserva la base en el volumen `wallbit-data` y reinicia el contenedor automáticamente salvo que lo detengas explícitamente.
 
 ---
 
-## 🧪 Modo Simulación / Dry-Run (Seguridad Financiera)
+## Configuración de Telegram y Wallbit
 
-Por defecto, el bot tiene configurado:
+### Crear el bot con BotFather
+
+1. Abre [@BotFather](https://t.me/BotFather).
+2. Envía `/newbot`.
+3. Elige un nombre y un usuario terminado en `bot`.
+4. Copia el token en `TELEGRAM_BOT_TOKEN`.
+5. Opcionalmente, usa `/setcommands` y registra:
+
+```text
+start - Abrir Wallbit Assistant
+saldo - Consultar saldo
+inv - Ver portafolio
+reporte - Generar resumen
+historial - Ver movimientos
+dca - Gestionar compras periódicas
+alerta - Gestionar alertas
+analizar - Analizar cartera con IA
+ordenes - Revisar órdenes inciertas
+estado - Ver estado del sistema
+config - Abrir configuración
+cancel - Cancelar el flujo actual
+```
+
+### Obtener tu ID de Telegram
+
+Consulta tu ID numérico con un bot de información de usuario, por ejemplo `@userinfobot`, y guárdalo en `TELEGRAM_ALLOWED_USER_ID`.
+
+La instancia rechazará mensajes y callbacks de cualquier otro usuario con `Este bot es privado.`
+
+### Configurar Wallbit
+
+Genera una API key desde las opciones disponibles en tu cuenta de Wallbit y guárdala únicamente en `WALLBIT_API_KEY`.
+
+- Para empezar, usa permisos mínimos de lectura y `TRADING_ENABLED=false`.
+- Habilita permisos de compra solamente cuando hayas validado el bot en simulación.
+- Si revocas o rotas la key, actualiza `.env`, reinicia el contenedor y ejecuta `doctor` otra vez.
+
+---
+
+## Tus primeros 10 minutos
+
+Una vez iniciado el bot, prueba este recorrido:
+
+1. `/start` — comprueba que Wallbit figure conectado.
+2. `/saldo` — revisa el disponible y la moneda local.
+3. `/inv` — consulta el portafolio completo.
+4. `/inv VOO` — abre el detalle de una posición.
+5. `/reporte` — genera el resumen financiero.
+6. `/config` — ajusta moneda, zona horaria y hora del reporte.
+7. `/alerta` — crea una alerta de prueba.
+8. `/dca` — crea una regla pequeña en simulación.
+9. Cuando llegue la propuesta DCA, pulsa **Comprar**: recibirás un ID `SIM-...` y no se enviará nada a Wallbit.
+10. `/estado` — verifica jobs, uptime y latencias.
+
+---
+
+## Comandos
+
+| Comando | Uso |
+|---|---|
+| `/start` | Presentación, modo actual, conexión y menú principal |
+| `/saldo` | Saldo en la moneda configurada |
+| `/saldo EUR` | Saldo convertido a una moneda soportada |
+| `/inv` | Resumen del portafolio |
+| `/inv AAPL` | Detalle de una posición concreta |
+| `/dca` | Crear, listar, pausar, reactivar o eliminar reglas DCA |
+| `/alerta` | Crear, listar o borrar alertas de precio y FX |
+| `/historial` | Movimientos recientes con paginación |
+| `/reporte` | Resumen financiero bajo demanda |
+| `/analizar` | Menú de análisis IA de solo lectura |
+| `/analizar ¿Qué riesgo tiene mi cartera?` | Pregunta libre al advisor |
+| `/ordenes` | Revisar resultados inciertos después de un timeout |
+| `/estado` o `/status` | Métricas y estado de tareas en segundo plano |
+| `/config` | Moneda, zona horaria, reporte y alertas |
+| `/cancel` | Cancelar una conversación activa |
+
+### DCA: automatización sin trading autónomo
+
+Una regla DCA no compra por sí sola:
+
+```text
+Fecha programada
+      ↓
+Se verifican saldo y cotización
+      ↓
+Telegram muestra monto + comisión estimada
+      ↓
+[Comprar]                    [Ahora no]
+      ↓
+Se vuelven a validar los fondos
+      ↓
+Simulación o envío único a Wallbit
+```
+
+Cada intención tiene vencimiento y una clave idempotente local. Los clics repetidos no ejecutan la misma orden dos veces.
+
+### ¿Qué pasa si Wallbit responde con timeout?
+
+Un timeout o error 5xx no demuestra si una compra fue aceptada. Por eso el bot:
+
+1. **no reintenta automáticamente**;
+2. marca la orden como `verification_required`;
+3. te pide revisar primero tu cuenta de Wallbit;
+4. permite registrar el resultado mediante `/ordenes` sin enviar otra compra.
+
+Las órdenes que estaban en proceso durante un reinicio también pasan a revisión manual.
+
+---
+
+## Simulación y trading real
+
+### Modo seguro
 
 ```env
 TRADING_ENABLED=false
 ```
 
-En este modo:
-- **Ninguna orden real llega a Wallbit.**
-- Puedes crear reglas DCA, recibir notificaciones y presionar **[Confirmar compra]**.
-- El bot simula la compra generando un ID de prueba (`SIM-XXXXXXXX`) y registra la transacción en tu base de datos local:
-  ```
-  🧪 Modo simulación
-  Se habría ejecutado:
-  Compra VOO
-  $50.00 USD
-  Sim ID: SIM-A1B2C3D4
-  ```
-- **Solo cuando cambies `TRADING_ENABLED=true` se enviarán órdenes de compra reales al mercado.**
+En simulación puedes usar DCA, confirmaciones, historial y reportes. Al confirmar una propuesta se genera una referencia `SIM-XXXXXXXX`, pero **no se llama al endpoint de compra**.
 
----
+### Activar compras reales
 
-## 🤖 IA opcional
+> [!CAUTION]
+> Activa esta opción solo después de completar el recorrido de prueba, verificar tus permisos y entender la reconciliación de órdenes.
 
-`AI_ENABLED=false` es el valor seguro por defecto. El advisor solo puede consultar herramientas
-estructuradas (`get_balance`, `get_portfolio`, `get_position`, `get_recent_transactions`,
-`get_dca_rules`, `get_alerts`, `get_exchange_rate` y `get_report`). No recibe JSON crudo ni
-acceso directo a `WallbitClient`, y no existe una herramienta `execute_trade`.
+```env
+TRADING_ENABLED=true
+```
 
-El provider `mock` sirve para pruebas locales. `WALLSYNC_ENABLED` permanece desactivado hasta
-contar con una integración programática oficial documentada; el bot no automatiza la web de
-Wallsync ni inventa endpoints.
-
-## 🔐 Alcance y seguridad
-
-- Una instancia corresponde a una sola persona y exige `TELEGRAM_ALLOWED_USER_ID`.
-- No hay login, registro, tenants, roles ni almacenamiento de credenciales de terceros.
-- Mantén `TRADING_ENABLED=false` durante desarrollo y pruebas.
-- Un timeout o error 5xx durante una orden deja la orden en `verification_required`; nunca se
-  reintenta automáticamente.
-- Los callbacks vuelven a validar usuario, estado, vencimiento y propiedad en SQLite.
-
----
-
-## ▶️ Ejecución
-
-Para iniciar el bot:
+Reinicia y confirma el estado:
 
 ```bash
+docker compose up -d
+docker exec wallbit-bot python -m app doctor
+```
+
+Toda compra real continúa necesitando una confirmación explícita en Telegram. El advisor IA no puede comprar, vender ni confirmar operaciones.
+
+---
+
+## Advisor con IA — opcional
+
+La IA está desactivada por defecto y solo recibe datos financieros estructurados de lectura. No tiene acceso directo al cliente de trading ni existe una herramienta `execute_trade`.
+
+### Probar el flujo sin proveedor externo
+
+```env
+AI_ENABLED=true
+AI_PROVIDER=mock
+```
+
+### Google Gemini
+
+```env
+AI_ENABLED=true
+AI_PROVIDER=gemini
+AI_API_KEY=tu_api_key
+AI_MODEL=gemini-2.5-flash
+```
+
+### OpenAI o API compatible
+
+```env
+AI_ENABLED=true
+AI_PROVIDER=openai
+AI_API_KEY=tu_api_key
+AI_MODEL=gpt-4o-mini
+# AI_BASE_URL=https://api.openai.com/v1
+```
+
+Después de editar `.env`:
+
+```bash
+docker compose up -d
+```
+
+Usa `/analizar` para resumen, riesgo, concentración o rendimiento. `WALLSYNC_ENABLED` debe permanecer en `false` mientras no exista una integración programática oficial configurada.
+
+---
+
+## Instalación sin Docker
+
+```bash
+git clone https://github.com/MatiasBlanc/wallbit-bot.git
+cd wallbit-bot
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+chmod 600 .env
+# Edita .env
+python -m app doctor
 python main.py
 ```
 
-Al iniciarse:
-- Se crearán automáticamente las tablas SQLite en `wallbit.db`.
-- Se verificará la conexión a la API de Wallbit.
-- Se levantará el scheduler centralizado con las tareas de reporte diario, DCA y alertas.
-- Comenzará a escuchar tus mensajes en Telegram.
+En Windows PowerShell, activa el entorno con:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Para mantener esta instalación activa 24/7, usa un servicio `systemd` o un supervisor equivalente. La guía principal de servidor está en [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
-## 🧪 Pruebas Automatizadas (Tests)
+## Variables de entorno
 
-El proyecto cuenta con una amplia suite de pruebas unitarias y de integración que mockea el cliente de Wallbit para garantizar que **nunca se efectúen operaciones reales durante las pruebas**.
+<details>
+<summary><strong>Ver referencia completa</strong></summary>
 
-Para correr todos los tests:
+| Variable | Obligatoria | Valor inicial | Descripción |
+|---|:---:|---|---|
+| `TELEGRAM_BOT_TOKEN` | Sí | — | Token entregado por BotFather |
+| `TELEGRAM_ALLOWED_USER_ID` | Sí | — | Único usuario autorizado |
+| `WALLBIT_API_KEY` | Sí | — | Credencial local para la API pública de Wallbit |
+| `WALLBIT_BASE_URL` | No | `https://api.wallbit.io` | URL HTTPS de Wallbit |
+| `WALLBIT_PLAN` | No | `classic` | Plan usado para estimar comisión: `classic`, `pro` o `max` |
+| `WALLBIT_MAX_CONCURRENT_REQUESTS` | No | `4` | Máximo de lecturas Wallbit simultáneas |
+| `WALLBIT_CACHE_TTL_SECONDS` | No | `5` | Caché corta de cotizaciones y metadata |
+| `DATABASE_URL` | No | `sqlite:///wallbit.db` | URL de SQLite; Compose la dirige a `/data` |
+| `DEFAULT_CURRENCY` | No | `CLP` | Moneda inicial: CLP, USD, ARS, EUR o USDC |
+| `DEFAULT_TIMEZONE` | No | `America/Santiago` | Zona horaria IANA |
+| `DEFAULT_REPORT_TIME` | No | `09:00` | Hora local del reporte diario |
+| `TRADING_ENABLED` | No | `false` | Habilita compras reales únicamente al usar `true` |
+| `AI_ENABLED` | No | `false` | Activa `/analizar` |
+| `AI_PROVIDER` | No | `mock` | `mock`, `gemini` u `openai` |
+| `AI_API_KEY` | Según provider | — | Key de Gemini/OpenAI |
+| `AI_MODEL` | No | — | Modelo solicitado al proveedor |
+| `AI_BASE_URL` | No | OpenAI oficial | Endpoint compatible personalizado |
+| `WALLSYNC_ENABLED` | No | `false` | Reserva para integración oficial |
+| `FX_CACHE_TTL_SECONDS` | No | `300` | Caché de tipos de cambio |
+| `LOG_LEVEL` | No | `INFO` | `DEBUG`, `INFO`, `WARNING` o `ERROR` |
+| `ALERT_CHECK_INTERVAL_MINUTES` | No | `5` | Frecuencia de revisión de alertas |
+| `DCA_CHECK_INTERVAL_MINUTES` | No | `1` | Frecuencia de revisión de DCA |
+| `ORDER_EXPIRY_HOURS` | No | `24` | Vigencia de una confirmación pendiente |
 
-```bash
-pytest
-```
-
-Para ver la salida detallada:
-
-```bash
-pytest -v
-```
-
-### Casos Cubiertos:
-- Consulta y cálculo de saldos (`BalanceService`).
-- Portafolio y cálculo de rentabilidad sin inventar métricas (`PortfolioService`).
-- Creación y cálculo de fechas de DCA semanal y mensual (`DCAService`).
-- Disparadores de DCA con saldo suficiente e insuficiente.
-- Pausa, reactivación y eliminación de DCA.
-- Confirmación de órdenes en modo simulación y real (`OrderService`).
-- **Idempotencia estricta**: prevención de doble orden ante clics repetidos.
-- Expiración de órdenes pendientes vencidas.
-- Disparadores de alertas con operadores `>=` y `<=`, y prevención de disparo repetido.
-- Resumen financiero matutino (`ReportService`).
-- Seguridad: rechazo de usuarios no autorizados (`"Este bot es privado."`).
-- Sanitización y enmascaramiento de tokens y secretos en logs.
-- Manejo de códigos HTTP de Wallbit (400, 401, 404, 412, 422, 429).
-- Delegación de DCA a Orders sin ejecutar compras antes de la confirmación.
-- Registro de rutas de Telegram, jobs por dominio y ciclo de vida del bot.
-- Inicialización ORM desde un proceso nuevo y compatibilidad con el esquema SQLite anterior.
+</details>
 
 ---
 
-## ⚠️ Advertencia sobre Dinero Real
+## Operación 24/7
+
+### Estado y logs
+
+```bash
+docker compose ps
+docker compose logs --tail 100
+docker exec wallbit-bot python -m app doctor
+```
+
+Dentro de Telegram:
+
+```text
+/estado
+```
+
+### Backup atómico
+
+```bash
+docker exec wallbit-bot \
+  python -m app backup --dir /data/backups --keep 7
+```
+
+Exporta las copias fuera del servidor:
+
+```bash
+docker cp wallbit-bot:/data/backups ./backups-export
+```
+
+Un cron diario de ejemplo:
+
+```cron
+0 3 * * * docker exec wallbit-bot python -m app backup --dir /data/backups --keep 7
+```
+
+### Actualizar
+
+```bash
+docker exec wallbit-bot python -m app backup --dir /data/backups --keep 7
+git pull --ff-only
+docker compose up -d --build
+docker exec wallbit-bot python -m app doctor
+```
+
+SQLite requiere **una sola réplica**. No levantes varios contenedores del bot contra la misma base.
+
+---
+
+## Solución de problemas
+
+<details>
+<summary><strong>Telegram aparece como ERROR en doctor</strong></summary>
+
+- Comprueba que copiaste el token completo y sin comillas.
+- Verifica que el bot no haya sido revocado en BotFather.
+- Confirma que el servidor tiene salida HTTPS hacia Telegram.
+- Vuelve a ejecutar `docker compose run --rm wallbit-bot python -m app doctor`.
+
+</details>
+
+<details>
+<summary><strong>Wallbit aparece como ERROR</strong></summary>
+
+- Revisa `WALLBIT_API_KEY` y `WALLBIT_BASE_URL`.
+- Confirma que la key está activa y tiene permisos de lectura.
+- Revisa los logs sin compartir la key.
+- Si rotaste la credencial, recrea el contenedor con `docker compose up -d`.
+
+</details>
+
+<details>
+<summary><strong>El bot responde “Este bot es privado”</strong></summary>
+
+El ID del remitente no coincide con `TELEGRAM_ALLOWED_USER_ID`. Corrige el valor en `.env` y reinicia.
+
+</details>
+
+<details>
+<summary><strong>No llegan DCA, alertas o reportes</strong></summary>
+
+- Ejecuta `/estado` y revisa el último estado de cada job.
+- Comprueba zona horaria y hora desde `/config`.
+- Verifica que la regla o alerta siga activa.
+- Consulta `docker compose logs --tail 200`.
+
+</details>
+
+<details>
+<summary><strong>Una compra quedó sin resultado</strong></summary>
+
+No la repitas. Revisa primero Wallbit y luego usa `/ordenes` para marcar si fue ejecutada o no.
+
+</details>
+
+<details>
+<summary><strong>SQLite no persiste tras recrear el contenedor</strong></summary>
+
+Usa `docker-compose.yml` sin retirar el volumen `wallbit-data`. Comprueba su existencia con `docker volume inspect wallbit-data`.
+
+</details>
+
+---
+
+## Arquitectura y seguridad
+
+El proyecto es un **monolito modular** pensado para una persona por instancia:
+
+```text
+app/
+├── bot/                    # Registro y ciclo de vida de Telegram
+├── core/                   # Configuración, autorización y logging seguro
+├── infrastructure/
+│   ├── database/           # SQLite, sesiones, migraciones y backups
+│   ├── monitoring/         # Métricas en memoria
+│   ├── scheduler/          # APScheduler
+│   └── wallbit/            # Cliente HTTP y schemas externos
+├── modules/
+│   ├── advisor/            # IA opcional de solo lectura
+│   ├── alerts/             # Alertas de activos y FX
+│   ├── balance/            # Saldos
+│   ├── dca/                # Reglas periódicas
+│   ├── history/            # Movimientos locales/remotos
+│   ├── orders/             # Confirmación y reconciliación
+│   ├── portfolio/          # Inversiones
+│   ├── reports/            # Resúmenes manuales/diarios
+│   └── settings/           # Preferencias
+└── shared/                 # Fechas, concurrencia, formato y FX
+```
+
+Controles principales:
+
+- autorización global por `TELEGRAM_ALLOWED_USER_ID`;
+- trading desactivado por defecto;
+- confirmación manual y revalidación de fondos;
+- transición atómica para evitar dobles clics;
+- cero retries automáticos en compras;
+- recuperación de órdenes interrumpidas;
+- sanitización de tokens, API keys y tracebacks;
+- secretos fuera de la imagen y del repositorio;
+- IA aislada de las operaciones financieras.
+
+Más detalles en [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md) y [DEPLOYMENT.md](DEPLOYMENT.md).
+
+---
+
+## Desarrollo
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest -q
+ruff check .
+mypy --follow-imports=skip \
+  app/__main__.py app/modules/advisor app/shared/presentation \
+  app/infrastructure/wallbit/client.py app/infrastructure/wallbit/exceptions.py \
+  app/modules/orders/service.py app/infrastructure/monitoring \
+  app/infrastructure/database/backup.py
+```
+
+La suite usa mocks de Wallbit y mantiene `TRADING_ENABLED=false`; no realiza compras reales.
+
+Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir un pull request. Las vulnerabilidades deben reportarse de forma privada siguiendo [SECURITY.md](SECURITY.md).
+
+---
+
+## Aviso financiero
 
 > [!CAUTION]
-> **Wallbit Assistant Bot** opera con servicios financieros reales.
-> - Mantén siempre `TRADING_ENABLED=false` mientras pruebas el bot.
-> - **Nunca compartas tu archivo `.env` ni tus API Keys.**
-> - El bot **no realiza recomendaciones financieras ni asesoramiento de inversión**; únicamente presenta información de tu cuenta y ejecuta instrucciones explícitas y determinísticas que confirmas manualmente.
+> Este software se entrega sin garantías. Tú eres responsable de custodiar tus credenciales, revisar montos, permisos, comisiones y resultados antes de operar. Las comisiones mostradas son estimaciones locales; Wallbit determina el cargo final. Ningún texto generado por el bot o por un modelo de IA constituye asesoramiento financiero.
 
----
+## Licencia
 
-## 🤝 Contribuir
+Distribuido bajo la licencia [MIT](LICENSE).
 
-¡Las contribuciones son bienvenidas! Por favor, leé la [Guía de Contribución](CONTRIBUTING.md) antes de enviar un Pull Request.
+<div align="center">
 
-También te pedimos que respetes nuestro [Código de Conducta](CODE_OF_CONDUCT.md).
+Hecho para automatizar lo repetitivo sin ceder el control de cada compra.
 
-Si descubrís una vulnerabilidad de seguridad, por favor seguí las instrucciones en [SECURITY.md](SECURITY.md).
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la licencia MIT. Consultá el archivo [LICENSE](LICENSE) para más detalles.
+</div>

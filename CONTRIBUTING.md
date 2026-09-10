@@ -61,7 +61,7 @@ Si encontraste un bug, por favor [abrí un issue](../../issues/new?template=bug_
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/tu-usuario/wallbit-bot.git
+git clone https://github.com/MatiasBlanc/wallbit-bot.git
 cd wallbit-bot
 
 # Crear entorno virtual
@@ -82,9 +82,6 @@ cp .env.example .env
 ```bash
 # Todos los tests
 pytest
-
-# Con cobertura
-pytest --cov=app
 
 # Un test específico
 pytest tests/modules/balance/test_balance_service.py -v
