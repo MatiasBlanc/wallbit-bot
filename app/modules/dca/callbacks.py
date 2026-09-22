@@ -38,22 +38,22 @@ def get_dca_callbacks(dca_service: DCAService, user_repo: UserSettingsRepository
                 lines.append(f"<b>#{rule.id} {escape(rule.ticker)}</b> ({escape(asset_name)})\n{day} — ${rule.amount_usd:,.2f} USD")
                 if is_active:
                     lines.append(f"Próxima: {format_date_short(rule.next_execution_at)}")
-                action, label = ("pause", "Pausar") if is_active else ("resume", "Reactivar")
+                action, label = ("pause", "⏸️ Pausar") if is_active else ("resume", "▶️ Reactivar")
                 buttons.append([
                     InlineKeyboardButton(f"{label} #{rule.id}", callback_data=f"dca_{action}:{rule.id}"),
-                    InlineKeyboardButton(f"Borrar #{rule.id}", callback_data=f"dca_delete:{rule.id}"),
+                    InlineKeyboardButton(f"🗑️ Eliminar #{rule.id}", callback_data=f"dca_delete:{rule.id}"),
                 ])
             if not rules:
                 lines.append("No hay compras en esta lista.")
         navigation = []
         if page > 1:
-            navigation.append(InlineKeyboardButton("Anterior", callback_data=f"dca_menu:{menu}:{page - 1}"))
+            navigation.append(InlineKeyboardButton("⬅️ Anterior", callback_data=f"dca_menu:{menu}:{page - 1}"))
         if has_next:
-            navigation.append(InlineKeyboardButton("Siguiente", callback_data=f"dca_menu:{menu}:{page + 1}"))
+            navigation.append(InlineKeyboardButton("Siguiente ➡️", callback_data=f"dca_menu:{menu}:{page + 1}"))
         if navigation:
             buttons.append(navigation)
-        buttons.append([InlineKeyboardButton("Nueva compra", callback_data="dca_menu:create")])
-        buttons.append([InlineKeyboardButton("Volver", callback_data="dca_menu:back")])
+        buttons.append([InlineKeyboardButton("➕ Nueva compra", callback_data="dca_menu:create")])
+        buttons.append([InlineKeyboardButton("◀️ Volver a compras", callback_data="dca_menu:back")])
         # Una sola edición por página, después de cerrar la sesión de base de datos.
         await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 

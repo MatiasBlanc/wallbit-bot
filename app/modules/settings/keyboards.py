@@ -62,13 +62,13 @@ def get_report_time_keyboard() -> InlineKeyboardMarkup:
         [
             [InlineKeyboardButton(hour, callback_data=f"report_time:{hour}") for hour in REPORT_TIME_PRESETS[:3]],
             [InlineKeyboardButton(hour, callback_data=f"report_time:{hour}") for hour in REPORT_TIME_PRESETS[3:]],
-            [InlineKeyboardButton("Cancelar", callback_data="cancel_config_conv")],
+            [InlineKeyboardButton("✕ Cancelar", callback_data="cancel_config_conv")],
         ]
     )
 
 
 def get_config_main_keyboard(alerts_enabled: bool) -> InlineKeyboardMarkup:
-    alerts_text = "🔔 Activadas" if alerts_enabled else "🔕 Pausadas"
+    alerts_text = "🔔 Alertas: activadas" if alerts_enabled else "🔕 Alertas: pausadas"
     return InlineKeyboardMarkup(
         [
             [
@@ -76,11 +76,11 @@ def get_config_main_keyboard(alerts_enabled: bool) -> InlineKeyboardMarkup:
                 InlineKeyboardButton("⏰ Hora", callback_data="config:report_time"),
             ],
             [
-                InlineKeyboardButton("🌍 Zona", callback_data="config:timezone"),
+                InlineKeyboardButton("🌍 Zona horaria", callback_data="config:timezone"),
                 InlineKeyboardButton(alerts_text, callback_data="config:toggle_alerts"),
             ],
-            [InlineKeyboardButton("Conexión Wallbit", callback_data="config:status")],
-            [InlineKeyboardButton("Listo", callback_data="config:close")],
+            [InlineKeyboardButton("🔌 Estado de Wallbit", callback_data="config:status")],
+            [InlineKeyboardButton("✅ Cerrar", callback_data="config:close")],
         ]
     )
 
@@ -95,7 +95,7 @@ def get_currency_keyboard(current_currency: str) -> InlineKeyboardMarkup:
         buttons.append(InlineKeyboardButton(label, callback_data=f"set_currency:{curr}"))
 
     keyboard = [[button] for button in buttons]
-    keyboard.append([InlineKeyboardButton("Volver", callback_data="config:back")])
+    keyboard.append([InlineKeyboardButton("◀️ Volver a ajustes", callback_data="config:back")])
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -105,5 +105,5 @@ def get_timezone_keyboard(current_tz: str) -> InlineKeyboardMarkup:
     for tz_code, label in common_tzs:
         prefix = "✓ " if tz_code == current_tz else ""
         buttons.append([InlineKeyboardButton(f"{prefix}{label}", callback_data=f"set_tz:{tz_code}")])
-    buttons.append([InlineKeyboardButton("Volver", callback_data="config:back")])
+    buttons.append([InlineKeyboardButton("◀️ Volver a ajustes", callback_data="config:back")])
     return InlineKeyboardMarkup(buttons)

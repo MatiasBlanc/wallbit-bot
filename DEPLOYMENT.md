@@ -71,6 +71,8 @@ El bot incluye respaldo atómico mediante la API nativa de SQLite sin necesidad 
 ```bash
 # Ejecutar respaldo atómico dentro del contenedor:
 docker exec wallbit-bot python -m app backup --dir /data/backups --keep 7
+# Debe devolver "Respaldo íntegro" antes de exportar o restaurar la copia.
+docker exec wallbit-bot python -m app verify-backup --file /data/backups/wallbit_backup_YYYYMMDD_HHMMSS_ffffff.db
 ```
 
 O mediante un cron en el host (`crontab -e`):
@@ -86,7 +88,7 @@ Extrae periódicamente las copias del volumen y guárdalas fuera de la VM (por e
 docker cp wallbit-bot:/data/backups ./backups-export
 ```
 
-Prueba su restauración periódicamente y no las subas al repositorio.
+Prueba la restauración periódicamente en una VM o volumen de staging: detén el bot, restaura una copia sobre una base vacía, ejecuta `python -m app verify-backup --file RUTA` y luego `python -m app doctor`. No subas respaldos al repositorio.
 
 ## 6. Actualizar
 

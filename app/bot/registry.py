@@ -282,4 +282,4 @@ def register_handlers(
         if handler is not None:
             await handler(update, context)
 
-    application.add_handler(MessageHandler(filters.Text(set(MAIN_MENU_LABELS)), route_menu))
+    application.add_handler(MessageHandler(filters.Text(tuple(MAIN_MENU_LABELS)), route_menu))

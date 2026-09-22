@@ -74,7 +74,7 @@ def get_order_callbacks(order_service: OrderService, user_repo: UserSettingsRepo
             return
         with get_db_session() as session:
             user = user_repo.get_or_create(session, update.effective_user.id)
-            result = session.execute(sql_update(PendingOrder).where(
+            result = session.connection().execute(sql_update(PendingOrder).where(
                 PendingOrder.id == order_id, PendingOrder.user_id == user.id, PendingOrder.status == "pending",
             ).values(status="skipped"))
             is_skipped = result.rowcount == 1

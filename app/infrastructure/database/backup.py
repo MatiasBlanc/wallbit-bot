@@ -79,6 +79,32 @@ def create_sqlite_backup(target_dir: str | Path = "backups", keep: int = 7) -> P
     return backup_file
 
 
+def verify_sqlite_backup(backup_file: str | Path) -> None:
+    """Comprueba la integridad de un respaldo SQLite sin modificarlo.
+
+    Args:
+        backup_file: Ruta al archivo generado por :func:`create_sqlite_backup`.
+
+    Returns:
+        None si SQLite confirma que la base es íntegra.
+
+    Raises:
+        FileNotFoundError: Si el respaldo no existe.
+        RuntimeError: Si SQLite detecta corrupción o no puede abrir el archivo.
+    """
+    path = Path(backup_file)
+    if not path.is_file():
+        raise FileNotFoundError(f"El respaldo no existe: {path}")
+    try:
+        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as connection:
+            result = connection.execute("PRAGMA integrity_check").fetchone()
+    except sqlite3.Error as error:
+        raise RuntimeError(f"No se pudo abrir el respaldo: {path}") from error
+    if result is None or result[0] != "ok":
+        detail = result[0] if result else "sin resultado"
+        raise RuntimeError(f"El respaldo no pasó integrity_check: {detail}")
+
+
 def _rotate_backups(target_dir: Path, keep: int) -> None:
     """Elimina copias antiguas si superan el límite configurado."""
     if keep <= 0:

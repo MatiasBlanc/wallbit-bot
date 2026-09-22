@@ -1,11 +1,16 @@
 """Modelo ORM de las órdenes pendientes de confirmación."""
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.base import Base
+
+if TYPE_CHECKING:
+    from app.modules.dca.models import DCARule
+    from app.modules.settings.models import UserSettings
 
 
 def utcnow() -> datetime:
@@ -16,17 +21,17 @@ class PendingOrder(Base):
     __tablename__ = "pending_orders"
     __table_args__ = (Index("ix_pending_orders_status_expires", "status", "expires_at"),)
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("user_settings.id", ondelete="CASCADE"), nullable=False)
-    dca_rule_id = Column(Integer, ForeignKey("dca_rules.id", ondelete="SET NULL"), nullable=True)
-    ticker = Column(String(20), nullable=False)
-    amount_usd = Column(Float, nullable=False)
-    status = Column(String(20), default="pending", nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-    expires_at = Column(DateTime(timezone=True), nullable=False)
-    executed_at = Column(DateTime(timezone=True), nullable=True)
-    external_order_id = Column(String(100), nullable=True)
-    idempotency_key = Column(String(100), unique=True, index=True, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_settings.id", ondelete="CASCADE"))
+    dca_rule_id: Mapped[int | None] = mapped_column(ForeignKey("dca_rules.id", ondelete="SET NULL"), nullable=True)
+    ticker: Mapped[str] = mapped_column(String(20))
+    amount_usd: Mapped[float] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    external_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(100), unique=True, index=True)
 
-    user = relationship("UserSettings", back_populates="pending_orders")
-    dca_rule = relationship("DCARule", back_populates="pending_orders")
+    user: Mapped["UserSettings"] = relationship(back_populates="pending_orders")
+    dca_rule: Mapped["DCARule | None"] = relationship(back_populates="pending_orders")

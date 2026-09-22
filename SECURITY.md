@@ -43,7 +43,7 @@ Si descubrís una vulnerabilidad de seguridad, por favor seguí estos pasos:
 
 ### Acceso al bot
 
-- El bot está restringido a un único usuario mediante `TELEGRAM_ALLOWED_USER_ID`.
+- El bot está restringido a un único usuario mediante `TELEGRAM_ALLOWED_USER_ID` y solo acepta chats privados.
 - `@restricted` protege comandos y callbacks financieros.
 - No existe login, registro, OAuth ni almacenamiento de credenciales de terceros.
 - Los usuarios sin autorización reciben un rechazo explícito y los callbacks de modificación vuelven a verificar la propiedad del registro.
@@ -56,6 +56,7 @@ Si descubrís una vulnerabilidad de seguridad, por favor seguí estos pasos:
 - Un resultado incierto requiere revisión manual mediante `/ordenes`.
 - Las órdenes interrumpidas durante un reinicio se recuperan en estado de verificación.
 - Las órdenes pendientes expiran automáticamente tras un período configurable.
+- Las alertas y propuestas DCA se persisten en una cola local antes de enviarse a Telegram y se reintentan tras errores de red.
 
 ### Base de datos
 

@@ -1,11 +1,16 @@
 """DCA rule ORM model."""
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.base import Base
+
+if TYPE_CHECKING:
+    from app.modules.orders.models import PendingOrder
+    from app.modules.settings.models import UserSettings
 
 
 def utcnow() -> datetime:
@@ -19,19 +24,19 @@ class DCARule(Base):
         Index("ix_dca_rules_user_enabled_execution", "user_id", "enabled", "next_execution_at"),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("user_settings.id", ondelete="CASCADE"), nullable=False)
-    ticker = Column(String(20), nullable=False)
-    asset_name = Column(String(200), nullable=True)
-    amount_usd = Column(Float, nullable=False)
-    frequency = Column(String(20), nullable=False)
-    weekday = Column(Integer, nullable=True)
-    day_of_month = Column(Integer, nullable=True)
-    enabled = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
-    last_triggered_at = Column(DateTime(timezone=True), nullable=True)
-    next_execution_at = Column(DateTime(timezone=True), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_settings.id", ondelete="CASCADE"))
+    ticker: Mapped[str] = mapped_column(String(20))
+    asset_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    amount_usd: Mapped[float] = mapped_column(Float)
+    frequency: Mapped[str] = mapped_column(String(20))
+    weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    day_of_month: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_execution_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-    user = relationship("UserSettings", back_populates="dca_rules")
-    pending_orders = relationship("PendingOrder", back_populates="dca_rule")
+    user: Mapped["UserSettings"] = relationship(back_populates="dca_rules")
+    pending_orders: Mapped[list["PendingOrder"]] = relationship(back_populates="dca_rule")

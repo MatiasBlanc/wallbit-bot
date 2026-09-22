@@ -7,6 +7,16 @@ y este proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Seguridad y fiabilidad
+
+- Las interacciones del bot ahora solo se aceptan en chats privados.
+- Alertas y propuestas DCA usan un outbox SQLite persistente con reintentos tras fallos de Telegram.
+- `/ordenes` incluye compras aún pendientes de confirmación.
+- SQLite activa claves foráneas, WAL y espera ante bloqueos, y registra migraciones aditivas en `schema_migrations`.
+- Se añadió verificación `integrity_check` para respaldos mediante `python -m app verify-backup --file RUTA`.
+- CI incorpora cobertura mínima de código de producción, auditoría SCA, mypy completo sin diagnósticos y una prueba de integración Wallbit opt-in solo de lectura.
+- Los modelos ORM se migraron a la sintaxis tipada de SQLAlchemy 2 (`Mapped` y `mapped_column`).
+
 ## [1.0.0] - 2026-09-06
 
 ### Agregado

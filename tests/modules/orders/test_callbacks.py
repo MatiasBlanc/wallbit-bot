@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 from sqlalchemy.orm import sessionmaker
+from telegram.constants import ChatType
 
 from app.bot.commands import get_orders_handler
 from app.core.config import settings
@@ -22,6 +23,7 @@ def _use_test_database(monkeypatch, db_session) -> None:
 def _make_update(user_id: int) -> MagicMock:
     update = MagicMock()
     update.effective_user.id = user_id
+    update.effective_chat.type = ChatType.PRIVATE
     update.effective_message.reply_text = AsyncMock()
     update.callback_query = None
     return update

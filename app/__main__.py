@@ -85,16 +85,41 @@ def run_backup(target_dir: str = "backups", keep: int = 7) -> int:
         return 1
 
 
+def verify_backup(backup_file: str) -> int:
+    """Verifica un respaldo SQLite antes de copiarlo o probar una restauración.
+
+    Args:
+        backup_file: Ruta de la copia SQLite creada por el comando ``backup``.
+
+    Returns:
+        0 cuando SQLite confirma integridad; 1 ante un error verificable.
+    """
+    try:
+        from app.infrastructure.database.backup import verify_sqlite_backup
+
+        verify_sqlite_backup(backup_file)
+        print(f"Respaldo íntegro: {backup_file}")
+        return 0
+    except Exception as error:
+        print(f"ERROR: El respaldo no es válido: {error}", file=sys.stderr)
+        return 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app")
-    parser.add_argument("command", choices=("doctor", "backup"))
+    parser.add_argument("command", choices=("doctor", "backup", "verify-backup"))
     parser.add_argument("--dir", default="backups", help="Directorio de destino para respaldos")
     parser.add_argument("--keep", type=int, default=7, help="Cantidad de copias a conservar")
+    parser.add_argument("--file", help="Archivo SQLite que se debe verificar")
     args = parser.parse_args(argv)
     if args.command == "doctor":
         return doctor()
-    elif args.command == "backup":
+    if args.command == "backup":
         return run_backup(target_dir=args.dir, keep=args.keep)
+    if args.command == "verify-backup":
+        if not args.file:
+            parser.error("verify-backup requiere --file RUTA")
+        return verify_backup(args.file)
     return 1
 
 

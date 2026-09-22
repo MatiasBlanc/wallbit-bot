@@ -25,7 +25,8 @@ init_db()
 init_db()
 configure_mappers()
 assert set(inspect(engine).get_table_names()) == {
-    'user_settings', 'dca_rules', 'pending_orders', 'alerts', 'local_transactions', 'wallbit_credentials'
+    'user_settings', 'dca_rules', 'pending_orders', 'alerts', 'local_transactions', 'wallbit_credentials',
+    'notification_outbox', 'schema_migrations'
 }
 engine.dispose()
 """],
@@ -88,6 +89,8 @@ def test_init_db_preserves_existing_schema_and_data(tmp_path, monkeypatch):
             "ix_local_transactions_user_date", "ix_local_transactions_user_ticker_type",
             "ix_dca_rules_user_enabled_execution",
             "wallbit_credentials", "sqlite_autoindex_wallbit_credentials_1", "ix_wallbit_credentials_is_active",
+            "notification_outbox", "ix_notification_outbox_event_key",
+            "ix_notification_outbox_user_id", "ix_notification_outbox_delivery", "schema_migrations",
         }
 
         # El esquema nuevo debe conservar también columnas, índices y restricciones.

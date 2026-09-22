@@ -103,7 +103,7 @@ class AdvisorService:
             }
 
         async def get_recent_transactions(_: EmptyArguments) -> list[dict[str, Any]]:
-            items, _, _ = await self.history_service.get_history(session, user.id, limit=5)
+            items, _current_page, _total_pages = await self.history_service.get_history(session, user.id, limit=5)
             return [
                 {"title": item.title, "amount_usd": item.amount_usd, "date": item.date_str, "status": item.status}
                 for item in items

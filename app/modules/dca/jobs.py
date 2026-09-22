@@ -2,11 +2,12 @@
 
 from datetime import datetime, timezone
 
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot
 
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.infrastructure.database.database import get_db_session
+from app.infrastructure.notifications.repository import NotificationOutboxRepository
 from app.modules.auth.jobs import for_each_account, job_telegram_user_id
 from app.modules.auth.models import WallbitCredential
 from app.modules.dca.models import DCARule
@@ -19,8 +20,17 @@ logger = get_logger(__name__)
 
 
 @for_each_account
-async def run_dca_checker(bot: Bot, dca_service: DCAService) -> None:
-    """Check due DCA rules and dispatch notifications with confirmation buttons."""
+async def run_dca_checker(
+    bot: Bot, dca_service: DCAService, notification_repo: NotificationOutboxRepository
+) -> None:
+    """Crea propuestas DCA y persiste su aviso antes de entregarlo a Telegram.
+
+    Args:
+        bot: Se conserva por compatibilidad con la firma de jobs del scheduler.
+        dca_service: Servicio que valida fondos y crea órdenes pendientes.
+        notification_repo: Outbox transaccional de Telegram.
+    """
+    del bot
     with get_db_session() as session:
         now_utc = datetime.now(timezone.utc)
         due_rules = dca_service.dca_repo.get_due_rules(session, now_utc, telegram_user_id=job_telegram_user_id())
@@ -31,7 +41,7 @@ async def run_dca_checker(bot: Bot, dca_service: DCAService) -> None:
         accounts = await dca_service.balance_service.get_account_balances()
         symbols = list(dict.fromkeys(rule.ticker for rule in due_rules))
         quotes = await map_limited(symbols, dca_service.client.get_asset, settings.WALLBIT_MAX_CONCURRENT_REQUESTS)
-        prices = {}
+        prices: dict[str, float | None] = {}
         for symbol, quote in zip(symbols, quotes, strict=True):
             if isinstance(quote, Exception):
                 logger.warning("No se pudo cotizar %s durante el ciclo DCA: %s", symbol, quote)
@@ -58,7 +68,6 @@ async def run_dca_checker(bot: Bot, dca_service: DCAService) -> None:
                 has_funds, pending_order, available_usd, current_price = await dca_service.trigger_dca_rule(
                     session=session, rule=rule, user=user, account_balances=accounts, market_prices=prices
                 )
-                session.commit()
 
                 if has_funds and pending_order:
                     price_line = f"Precio actual: ${current_price:,.2f}\n" if current_price else ""
@@ -74,26 +83,17 @@ async def run_dca_checker(bot: Bot, dca_service: DCAService) -> None:
                         f"Saldo disponible: ${available_usd:,.2f} USD\n\n"
                         "<i>La comisión final la determina Wallbit según tu plan.</i>"
                     )
-                    keyboard = InlineKeyboardMarkup(
-                        [
-                            [
-                                InlineKeyboardButton(
-                                    "Comprar",
-                                    callback_data=f"order_confirm:{pending_order.id}",
-                                ),
-                                InlineKeyboardButton(
-                                    "Ahora no",
-                                    callback_data=f"order_skip:{pending_order.id}",
-                                ),
-                            ]
-                        ]
-                    )
-                    await bot.send_message(
-                        chat_id=user.telegram_user_id,
+                    notification_repo.enqueue(
+                        session,
+                        user_id=user.id,
+                        event_key=f"pending-order:{pending_order.id}",
                         text=msg,
-                        reply_markup=keyboard,
-                        parse_mode="HTML",
+                        keyboard=[[
+                            {"text": "Comprar", "callback_data": f"order_confirm:{pending_order.id}"},
+                            {"text": "Ahora no", "callback_data": f"order_skip:{pending_order.id}"},
+                        ]],
                     )
+                    session.commit()
                 else:
                     # Insufficient funds
                     asset_label = rule.asset_name and (
@@ -107,11 +107,13 @@ async def run_dca_checker(bot: Bot, dca_service: DCAService) -> None:
                         f"Saldo disponible: ${available_usd:,.2f} USD\n\n"
                         "No tienes saldo suficiente para cubrir el total aproximado."
                     )
-                    await bot.send_message(
-                        chat_id=user.telegram_user_id,
+                    notification_repo.enqueue(
+                        session,
+                        user_id=user.id,
+                        event_key=f"dca-insufficient:{rule.id}:{rule.last_triggered_at.isoformat()}",
                         text=msg,
-                        parse_mode="HTML",
                     )
+                    session.commit()
 
             except Exception:
                 session.rollback()

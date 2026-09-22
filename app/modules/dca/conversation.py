@@ -48,7 +48,7 @@ def get_dca_conversation_handler(dca_service: DCAService, user_repo: UserSetting
             "¿Qué quieres comprar? Escribe el símbolo, por ejemplo <b>VOO</b> o <b>AAPL</b>."
         )
         cancel_kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Cancelar", callback_data="cancel_conv")]]
+            [[InlineKeyboardButton("✕ Cancelar", callback_data="cancel_conv")]]
         )
         if update.callback_query:
             await update.callback_query.answer()
@@ -72,7 +72,7 @@ def get_dca_conversation_handler(dca_service: DCAService, user_repo: UserSetting
         context.user_data["dca_ticker"] = ticker
         context.user_data["dca_asset_name"] = asset_name
         cancel_kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Cancelar", callback_data="cancel_conv")]]
+            [[InlineKeyboardButton("✕ Cancelar", callback_data="cancel_conv")]]
         )
         await update.effective_message.reply_text(
             f"Comprarás <b>{format_asset_label(ticker, asset_name)}</b>.\n\n"
@@ -99,10 +99,10 @@ def get_dca_conversation_handler(dca_service: DCAService, user_repo: UserSetting
         keyboard = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("Cada semana", callback_data="dca_freq:weekly"),
-                    InlineKeyboardButton("Cada mes", callback_data="dca_freq:monthly"),
+                    InlineKeyboardButton("📅 Cada semana", callback_data="dca_freq:weekly"),
+                    InlineKeyboardButton("🗓️ Cada mes", callback_data="dca_freq:monthly"),
                 ],
-                [InlineKeyboardButton("Cancelar", callback_data="cancel_conv")],
+                [InlineKeyboardButton("✕ Cancelar", callback_data="cancel_conv")],
             ]
         )
         await update.effective_message.reply_text(
@@ -135,7 +135,7 @@ def get_dca_conversation_handler(dca_service: DCAService, user_repo: UserSetting
                     InlineKeyboardButton("Sábado", callback_data="dca_day:5"),
                     InlineKeyboardButton("Domingo", callback_data="dca_day:6"),
                 ],
-                [InlineKeyboardButton("Cancelar", callback_data="cancel_conv")],
+                [InlineKeyboardButton("✕ Cancelar", callback_data="cancel_conv")],
             ]
             await query.edit_message_text(
                 "¿Qué día de la semana?",
@@ -156,7 +156,7 @@ def get_dca_conversation_handler(dca_service: DCAService, user_repo: UserSetting
                     InlineKeyboardButton("Día 20", callback_data="dca_day:20"),
                     InlineKeyboardButton("Día 25", callback_data="dca_day:25"),
                 ],
-                [InlineKeyboardButton("Cancelar", callback_data="cancel_conv")],
+                [InlineKeyboardButton("✕ Cancelar", callback_data="cancel_conv")],
             ]
             await query.edit_message_text(
                 "¿Qué día del mes? También puedes escribir un número del 1 al 28.",
@@ -216,8 +216,8 @@ def get_dca_conversation_handler(dca_service: DCAService, user_repo: UserSetting
         keyboard = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("Activar", callback_data="dca_confirm:yes"),
-                    InlineKeyboardButton("Cancelar", callback_data="cancel_conv"),
+                    InlineKeyboardButton("✅ Activar compra", callback_data="dca_confirm:yes"),
+                    InlineKeyboardButton("✕ Cancelar", callback_data="cancel_conv"),
                 ]
             ]
         )

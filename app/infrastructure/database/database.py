@@ -1,9 +1,11 @@
 """Database setup and session management."""
 
+import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
@@ -20,6 +22,23 @@ engine = create_engine(
     pool_pre_ping=not settings.DATABASE_URL.startswith("sqlite"),
 )
 
+
+@event.listens_for(Engine, "connect")
+def _configure_sqlite_connection(dbapi_connection: sqlite3.Connection, connection_record: object) -> None:
+    """Activa integridad referencial y espera acotada para conexiones SQLite.
+
+    SQLite ignora claves foráneas si no se habilitan por conexión. WAL disminuye los
+    bloqueos entre el polling y los jobs en una instancia única.
+    """
+    if settings.DATABASE_URL.startswith("sqlite"):
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA journal_mode=WAL")
+        finally:
+            cursor.close()
+
 # Los handlers construyen respuestas tras el commit; no necesitan recargar cada atributo.
 # Las transiciones de órdenes vuelven a validar su estado directamente en SQL.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, expire_on_commit=False, bind=engine)
@@ -32,6 +51,7 @@ def register_models() -> None:
         None. Puede invocarse varias veces sin duplicar tablas ni mappers.
     """
     # Las relaciones por nombre necesitan todos los modelos antes del primer uso.
+    import app.infrastructure.notifications.models  # noqa: F401
     import app.modules.alerts.models  # noqa: F401
     import app.modules.auth.models  # noqa: F401
     import app.modules.dca.models  # noqa: F401
@@ -41,19 +61,29 @@ def register_models() -> None:
 
 
 def _migrate_sqlite_schema() -> None:
-    """Aplica migraciones aditivas mínimas para instalaciones SQLite existentes.
+    """Aplica migraciones SQLite aditivas y registra su versión.
 
-    SQLAlchemy no altera tablas ya creadas con ``create_all``. Esta migración conserva
-    los datos de V1 y solo agrega metadata opcional que el modelo actual puede usar.
+    SQLAlchemy no altera tablas ya creadas con ``create_all``. Cada paso debe ser
+    compatible con instalaciones anteriores y seguro de ejecutar más de una vez.
     """
     if not settings.DATABASE_URL.startswith("sqlite"):
         return
 
-    inspector = inspect(engine)
-    dca_columns = {column["name"] for column in inspector.get_columns("dca_rules")}
-    if "asset_name" not in dca_columns:
-        with engine.begin() as connection:
-            connection.execute(text("ALTER TABLE dca_rules ADD COLUMN asset_name VARCHAR(200)"))
+    with engine.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE IF NOT EXISTS schema_migrations "
+            "(version INTEGER PRIMARY KEY, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+        ))
+        applied_versions = set(connection.execute(text("SELECT version FROM schema_migrations")).scalars())
+        if 1 not in applied_versions:
+            inspector = inspect(connection)
+            dca_columns = {column["name"] for column in inspector.get_columns("dca_rules")}
+            if "asset_name" not in dca_columns:
+                connection.execute(text("ALTER TABLE dca_rules ADD COLUMN asset_name VARCHAR(200)"))
+            connection.execute(text("INSERT INTO schema_migrations (version) VALUES (1)"))
+        if 2 not in applied_versions:
+            # notification_outbox se crea mediante metadata antes de este paso.
+            connection.execute(text("INSERT INTO schema_migrations (version) VALUES (2)"))
 
 
 def init_db() -> None:

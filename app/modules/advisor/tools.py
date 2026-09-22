@@ -2,7 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -25,6 +25,7 @@ class ToolExecutionError(RuntimeError):
 
 
 ToolHandler = Callable[[BaseModel], Awaitable[Any]]
+ArgumentsT = TypeVar("ArgumentsT", bound=BaseModel)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,12 +44,28 @@ class ToolRegistry:
     def register(
         self,
         name: str,
-        arguments_model: type[BaseModel],
-        handler: ToolHandler,
+        arguments_model: type[ArgumentsT],
+        handler: Callable[[ArgumentsT], Awaitable[Any]],
     ) -> None:
+        """Registra una herramienta conservando su tipo concreto de argumentos.
+
+        Args:
+            name: Nombre público permitido para el provider.
+            arguments_model: Modelo Pydantic que valida la entrada.
+            handler: Operación de solo lectura para ese modelo concreto.
+
+        Raises:
+            ValueError: Si se intenta registrar una acción de trading.
+        """
         if name == "execute_trade":
             raise ValueError("El advisor no puede registrar herramientas de trading.")
-        self._definitions[name] = ToolDefinition(name, arguments_model, handler)
+
+        async def validated_handler(arguments: BaseModel) -> Any:
+            if not isinstance(arguments, arguments_model):
+                raise ToolExecutionError(f"Argumentos inválidos para {name}.")
+            return await handler(arguments)
+
+        self._definitions[name] = ToolDefinition(name, arguments_model, validated_handler)
 
     def names(self) -> tuple[str, ...]:
         return tuple(sorted(self._definitions))

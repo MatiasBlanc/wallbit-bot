@@ -30,12 +30,14 @@ def restricted(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args: Any, **kwargs: Any) -> Any:
         user = update.effective_user
+        if not update.effective_chat or update.effective_chat.type != ChatType.PRIVATE:
+            if update.callback_query:
+                await update.callback_query.answer("Usa el bot en un chat privado.", show_alert=True)
+            elif update.effective_message:
+                await update.effective_message.reply_text("Usa el bot en un chat privado.")
+            return None
         if settings.MULTI_USER_ENABLED:
-            if not user or not update.effective_chat or update.effective_chat.type != ChatType.PRIVATE:
-                if update.callback_query:
-                    await update.callback_query.answer("Usa el bot en un chat privado.", show_alert=True)
-                elif update.effective_message:
-                    await update.effective_message.reply_text("Usa el bot en un chat privado.")
+            if not user:
                 return None
             with get_db_session() as session:
                 identity = get_identity(session, user.id)

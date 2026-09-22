@@ -6,6 +6,7 @@ from app.bot.application import create_bot_application
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.infrastructure.database.database import get_db_session, init_db
+from app.infrastructure.notifications.repository import NotificationOutboxRepository
 from app.infrastructure.scheduler.scheduler import BotScheduler
 from app.infrastructure.wallbit.client import WallbitClient
 from app.infrastructure.wallbit.health import WallbitHealth
@@ -74,6 +75,11 @@ def main() -> None:
             interrupted_orders,
         )
     alert_repo = AlertRepository()
+    notification_repo = NotificationOutboxRepository()
+    with get_db_session() as session:
+        interrupted_notifications = notification_repo.recover_interrupted_deliveries(session)
+    if interrupted_notifications:
+        logger.warning("%s notificaciones interrumpidas volvieron a la cola.", interrupted_notifications)
     tx_repo = LocalTransactionRepository()
 
     # Instantiate Services
@@ -137,6 +143,7 @@ def main() -> None:
         dca_service=dca_service,
         alert_service=alert_service,
         order_repo=order_repo,
+        notification_repo=notification_repo,
         health=health,
     )
 

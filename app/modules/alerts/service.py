@@ -152,7 +152,8 @@ class AlertService:
                     f"current={current_val} target={alert.target_value}"
                 )
 
+        # Persistir en la transacción vigente permite que las consultas posteriores
+        # no vuelvan a disparar la alerta, sin confirmar antes que el outbox.
         if triggered_list:
-            session.commit()
-
+            session.flush()
         return triggered_list

@@ -76,7 +76,7 @@ class PendingOrderRepository:
         Raises:
             sqlalchemy.exc.SQLAlchemyError: Si falla la escritura.
         """
-        result = session.execute(
+        result = session.connection().execute(
             update(PendingOrder)
             .where(
                 PendingOrder.id == order_id,
@@ -103,7 +103,7 @@ class PendingOrderRepository:
         Raises:
             sqlalchemy.exc.SQLAlchemyError: Si falla la actualización.
         """
-        result = session.execute(
+        result = session.connection().execute(
             update(PendingOrder)
             .where(PendingOrder.status == ORDER_STATUS_PENDING, PendingOrder.expires_at <= current_time)
             .values(status=ORDER_STATUS_EXPIRED)
@@ -133,7 +133,7 @@ class PendingOrderRepository:
         Raises:
             sqlalchemy.exc.SQLAlchemyError: Si falla la actualización.
         """
-        result = session.execute(
+        result = session.connection().execute(
             update(PendingOrder)
             .where(PendingOrder.status == ORDER_STATUS_CONFIRMED)
             .values(status=ORDER_STATUS_UNKNOWN)
@@ -149,6 +149,23 @@ class PendingOrderRepository:
                 PendingOrder.user_id == user_id,
                 PendingOrder.status == ORDER_STATUS_UNKNOWN,
             )
+            .order_by(PendingOrder.created_at.desc())
+            .all()
+        )
+
+    def list_pending_orders(self, session: Session, user_id: int) -> list[PendingOrder]:
+        """Obtiene intenciones vigentes que aún requieren una decisión explícita.
+
+        Args:
+            session: Sesión de lectura.
+            user_id: Propietario local de las órdenes.
+
+        Returns:
+            Órdenes pendientes ordenadas desde la más reciente.
+        """
+        return (
+            session.query(PendingOrder)
+            .filter(PendingOrder.user_id == user_id, PendingOrder.status == ORDER_STATUS_PENDING)
             .order_by(PendingOrder.created_at.desc())
             .all()
         )

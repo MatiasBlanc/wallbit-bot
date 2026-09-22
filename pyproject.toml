@@ -6,6 +6,18 @@ target-version = "py312"
 select = ["E", "F", "W", "I"]
 ignore = ["E402", "E501"]
 
+[tool.mypy]
+# Los handlers se registran con filtros que garantizan el tipo de update; las
+# anotaciones de python-telegram-bot mantienen esos campos como opcionales.
+strict_optional = false
+
+[[tool.mypy.overrides]]
+module = ["apscheduler.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+  "integration: requiere servicios externos y credenciales de staging; no se ejecuta por defecto",
+]

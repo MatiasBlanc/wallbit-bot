@@ -4,6 +4,7 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from telegram.constants import ChatType
 
 from app.core.config import settings
 from app.core.logging import SecretSanitizingFilter
@@ -31,6 +32,7 @@ async def test_restricted_decorator_blocks_unauthorized_user(monkeypatch):
     # Unauthorized update
     update = MagicMock()
     update.effective_user.id = 999999999
+    update.effective_chat.type = ChatType.PRIVATE
     update.effective_message.reply_text = AsyncMock()
     update.callback_query = None
 
@@ -54,6 +56,7 @@ async def test_restricted_decorator_allows_authorized_user(monkeypatch):
 
     update = MagicMock()
     update.effective_user.id = 123456789
+    update.effective_chat.type = ChatType.PRIVATE
     context = MagicMock()
 
     await sample_handler(update, context)

@@ -10,6 +10,7 @@ from telegram import Bot
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.infrastructure.monitoring.metrics import metrics
+from app.infrastructure.notifications.repository import NotificationOutboxRepository, dispatch_pending_notifications
 from app.infrastructure.wallbit.health import WallbitHealth
 from app.infrastructure.wallbit.jobs import refresh_wallbit_health
 from app.modules.alerts.jobs import run_alert_checker
@@ -32,6 +33,7 @@ class BotScheduler:
         dca_service: DCAService,
         alert_service: AlertService,
         order_repo: PendingOrderRepository,
+        notification_repo: NotificationOutboxRepository,
         health: WallbitHealth | None = None,
     ):
         self.bot = bot
@@ -39,6 +41,7 @@ class BotScheduler:
         self.dca_service = dca_service
         self.alert_service = alert_service
         self.order_repo = order_repo
+        self.notification_repo = notification_repo
         self.health = health
         # Un único scheduler por bot: no acumular ejecuciones al recuperarse de una pausa.
         self.scheduler = AsyncIOScheduler(job_defaults={"max_instances": 1, "coalesce": True})
@@ -67,7 +70,7 @@ class BotScheduler:
         self.scheduler.add_job(
             run_dca_checker,
             trigger=IntervalTrigger(minutes=settings.DCA_CHECK_INTERVAL_MINUTES),
-            args=[self.bot, self.dca_service],
+            args=[self.bot, self.dca_service, self.notification_repo],
             id="dca_checker",
             name="Check due DCA orders",
             replace_existing=True,
@@ -77,7 +80,7 @@ class BotScheduler:
         self.scheduler.add_job(
             run_alert_checker,
             trigger=IntervalTrigger(minutes=settings.ALERT_CHECK_INTERVAL_MINUTES),
-            args=[self.bot, self.alert_service],
+            args=[self.bot, self.alert_service, self.notification_repo],
             id="alert_checker",
             name="Check price and FX alerts",
             replace_existing=True,
@@ -93,7 +96,17 @@ class BotScheduler:
                 replace_existing=True,
             )
 
-        # 4. Order expiration check (runs every 10 minutes)
+        # 4. Entrega persistente de alertas y propuestas DCA; los fallos se reintentan.
+        self.scheduler.add_job(
+            dispatch_pending_notifications,
+            trigger=IntervalTrigger(minutes=1),
+            args=[self.bot, self.notification_repo],
+            id="notification_dispatcher",
+            name="Deliver pending Telegram notifications",
+            replace_existing=True,
+        )
+
+        # 5. Order expiration check (runs every 10 minutes)
         self.scheduler.add_job(
             run_order_expiration_check,
             trigger=IntervalTrigger(minutes=10),

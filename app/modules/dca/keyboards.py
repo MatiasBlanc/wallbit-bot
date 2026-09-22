@@ -6,14 +6,12 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 def get_dca_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
+            [InlineKeyboardButton("➕ Nueva compra", callback_data="dca_menu:create")],
             [
-                InlineKeyboardButton("Nueva compra", callback_data="dca_menu:create"),
-                InlineKeyboardButton("Activas", callback_data="dca_menu:active"),
+                InlineKeyboardButton("✅ Activas", callback_data="dca_menu:active"),
+                InlineKeyboardButton("⏸️ Pausadas", callback_data="dca_menu:paused"),
             ],
-            [
-                InlineKeyboardButton("Pausadas", callback_data="dca_menu:paused"),
-                InlineKeyboardButton("Listo", callback_data="dca_menu:close"),
-            ],
+            [InlineKeyboardButton("✅ Cerrar", callback_data="dca_menu:close")],
         ]
     )
 
@@ -23,8 +21,8 @@ def get_dca_item_keyboard(rule_id: int, is_active: bool) -> InlineKeyboardMarkup
         return InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("Pausar", callback_data=f"dca_pause:{rule_id}"),
-                    InlineKeyboardButton("Borrar", callback_data=f"dca_delete:{rule_id}"),
+                    InlineKeyboardButton("⏸️ Pausar", callback_data=f"dca_pause:{rule_id}"),
+                    InlineKeyboardButton("🗑️ Eliminar", callback_data=f"dca_delete:{rule_id}"),
                 ]
             ]
         )
@@ -32,8 +30,8 @@ def get_dca_item_keyboard(rule_id: int, is_active: bool) -> InlineKeyboardMarkup
         return InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("Reactivar", callback_data=f"dca_resume:{rule_id}"),
-                    InlineKeyboardButton("Borrar", callback_data=f"dca_delete:{rule_id}"),
+                    InlineKeyboardButton("▶️ Reactivar", callback_data=f"dca_resume:{rule_id}"),
+                    InlineKeyboardButton("🗑️ Eliminar", callback_data=f"dca_delete:{rule_id}"),
                 ]
             ]
         )

@@ -89,18 +89,35 @@ def get_orders_handler(
             return
         with get_db_session() as session:
             user = user_repo.get_or_create(session, update.effective_user.id)
+            pending_orders = order_service.list_pending_orders(session, user.id)
             unverified = order_service.list_orders_needing_verification(session, user.id)
 
-        if not unverified:
+        if not pending_orders and not unverified:
             await update.effective_message.reply_text(
                 "✅ <b>Órdenes al día</b>\n\n"
-                "No hay órdenes pendientes de verificación por problemas de red o timeouts.",
+                "No hay compras esperando confirmación ni resultados pendientes de verificación.",
                 parse_mode="HTML",
             )
             return
 
-        lines = ["⚠️ <b>Órdenes que requieren verificación manual</b>\n"]
+        lines = ["<b>Órdenes</b>\n"]
         keyboard_rows = []
+        if pending_orders:
+            lines.append("⏳ <b>Esperando confirmación</b>")
+            for order in pending_orders:
+                expires = order.expires_at.strftime("%Y-%m-%d %H:%M UTC") if order.expires_at else "desconocido"
+                lines.append(
+                    f"• ID #{order.id}: <b>{escape(order.ticker)}</b> por <b>${order.amount_usd:.2f}</b>\n"
+                    f"  Vence: <code>{expires}</code>\n"
+                )
+                keyboard_rows.append(
+                    [
+                        InlineKeyboardButton("Comprar", callback_data=f"order_confirm:{order.id}"),
+                        InlineKeyboardButton("Ahora no", callback_data=f"order_skip:{order.id}"),
+                    ]
+                )
+        if unverified:
+            lines.append("⚠️ <b>Requieren verificación manual</b>")
         for order in unverified:
             created = order.created_at.strftime("%Y-%m-%d %H:%M UTC") if order.created_at else "desconocida"
             lines.append(
@@ -111,11 +128,11 @@ def get_orders_handler(
             keyboard_rows.append(
                 [
                     InlineKeyboardButton(
-                        f"✅ #{order.id} ejecutada",
+                        f"✅ Ejecutada #{order.id}",
                         callback_data=f"order_reconcile:executed:{order.id}",
                     ),
                     InlineKeyboardButton(
-                        f"❌ #{order.id} no ejecutada",
+                        f"❌ No ejecutada #{order.id}",
                         callback_data=f"order_reconcile:failed:{order.id}",
                     ),
                 ]

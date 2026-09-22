@@ -117,7 +117,7 @@ def redeem_login_code(session: Session, telegram_user_id: int, code: str) -> boo
     """
     if not 32 <= len(code) <= 128:
         return False
-    result = session.execute(
+    result = session.connection().execute(
         update(WallbitCredential)
         .where(
             WallbitCredential.telegram_user_id == telegram_user_id,

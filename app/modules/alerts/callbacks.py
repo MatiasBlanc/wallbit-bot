@@ -35,18 +35,18 @@ def get_alert_callbacks(alert_service: AlertService, user_repo: UserSettingsRepo
                 lines.append(
                     f"<b>#{alert.id} {escape(alert.symbol)}</b> {escape(alert.operator)} ${alert.target_value:,.2f}\n{status}\n"
                 )
-                buttons.append([InlineKeyboardButton(f"Borrar #{alert.id}", callback_data=f"alert_delete:{alert.id}")])
+                buttons.append([InlineKeyboardButton(f"🗑️ Eliminar alerta #{alert.id}", callback_data=f"alert_delete:{alert.id}")])
             if not alerts:
                 lines.append("No hay alertas en esta página.")
         navigation = []
         if page > 1:
-            navigation.append(InlineKeyboardButton("Anterior", callback_data=f"alert_menu:list:{page - 1}"))
+            navigation.append(InlineKeyboardButton("⬅️ Anterior", callback_data=f"alert_menu:list:{page - 1}"))
         if has_next:
-            navigation.append(InlineKeyboardButton("Siguiente", callback_data=f"alert_menu:list:{page + 1}"))
+            navigation.append(InlineKeyboardButton("Siguiente ➡️", callback_data=f"alert_menu:list:{page + 1}"))
         if navigation:
             buttons.append(navigation)
-        buttons.append([InlineKeyboardButton("Nueva alerta", callback_data="alert_menu:create")])
-        buttons.append([InlineKeyboardButton("Volver", callback_data="alert_menu:back")])
+        buttons.append([InlineKeyboardButton("➕ Crear alerta", callback_data="alert_menu:create")])
+        buttons.append([InlineKeyboardButton("◀️ Volver a alertas", callback_data="alert_menu:back")])
         await query.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
 
     @restricted

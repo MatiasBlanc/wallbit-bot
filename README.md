@@ -154,7 +154,7 @@ cancel - Cancelar el flujo actual
 
 Consulta tu ID numérico con un bot de información de usuario, por ejemplo `@userinfobot`, y guárdalo en `TELEGRAM_ALLOWED_USER_ID`.
 
-La instancia rechazará mensajes y callbacks de cualquier otro usuario con `Este bot es privado.`
+La instancia rechaza mensajes y callbacks de cualquier otro usuario con `Este bot es privado.` También rechaza toda interacción fuera de un chat privado, incluso si el usuario autorizado añadió el bot a un grupo.
 
 ### Configurar Wallbit
 
@@ -221,7 +221,7 @@ Se vuelven a validar los fondos
 Simulación o envío único a Wallbit
 ```
 
-Cada intención tiene vencimiento y una clave idempotente local. Los clics repetidos no ejecutan la misma orden dos veces.
+Cada intención tiene vencimiento y una clave idempotente local. Los clics repetidos no ejecutan la misma orden dos veces. Si Telegram no está disponible, las propuestas DCA y alertas quedan en una cola local y se reintentan automáticamente; consulta `/ordenes` para ver compras que aún esperan confirmación.
 
 ### ¿Qué pasa si Wallbit responde con timeout?
 
@@ -387,6 +387,9 @@ Dentro de Telegram:
 ```bash
 docker exec wallbit-bot \
   python -m app backup --dir /data/backups --keep 7
+# Verifica la integridad antes de exportar o restaurar una copia.
+docker exec wallbit-bot \
+  python -m app verify-backup --file /data/backups/wallbit_backup_YYYYMMDD_HHMMSS_ffffff.db
 ```
 
 Exporta las copias fuera del servidor:
@@ -519,14 +522,16 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 pytest -q
 ruff check .
-mypy --follow-imports=skip \
-  app/__main__.py app/modules/advisor app/shared/presentation \
-  app/infrastructure/wallbit/client.py app/infrastructure/wallbit/exceptions.py \
-  app/modules/orders/service.py app/infrastructure/monitoring \
-  app/infrastructure/database/backup.py
+mypy app main.py
 ```
 
-La suite usa mocks de Wallbit y mantiene `TRADING_ENABLED=false`; no realiza compras reales.
+La suite usa mocks de Wallbit y mantiene `TRADING_ENABLED=false`; no realiza compras reales. Para validar el contrato de lectura contra una cuenta de staging o con permisos solo lectura, sin crear órdenes:
+
+```bash
+RUN_WALLBIT_INTEGRATION=1 pytest -q tests/integration
+```
+
+No ejecutes esa prueba con una key que tenga permisos de trading.
 
 Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir un pull request. Las vulnerabilidades deben reportarse de forma privada siguiendo [SECURITY.md](SECURITY.md).
 

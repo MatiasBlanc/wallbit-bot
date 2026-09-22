@@ -21,10 +21,31 @@ from app.core.constants import (
 from app.core.logging import get_logger
 from app.core.security import restricted
 from app.infrastructure.database.database import get_db_session
+from app.infrastructure.wallbit.exceptions import WallbitApiException
 from app.modules.alerts.service import AlertService
 from app.modules.settings.repository import UserSettingsRepository
 
 logger = get_logger(__name__)
+
+
+def parse_fx_pair(symbol: str) -> tuple[str, str]:
+    """Valida y separa un par de divisas escrito como USD/CLP o USDCLP."""
+    normalized = symbol.replace("/", "").strip().upper()
+    if len(normalized) != 6 or not normalized.isalpha():
+        raise ValueError("Escribe un par válido, por ejemplo <b>USD/CLP</b>.")
+    return normalized[:3], normalized[3:]
+
+
+async def get_current_alert_value(alert_service: AlertService, alert_type: str, symbol: str) -> tuple[float, str]:
+    """Consulta el valor actual y devuelve el valor junto con su unidad visible."""
+    if alert_type == ALERT_TYPE_PRICE:
+        asset = await alert_service.client.get_asset(symbol)
+        return asset.price, asset.currency or "USD"
+
+    source, destination = parse_fx_pair(symbol)
+    rate = await alert_service.exchange_service.get_rate(source, destination)
+    return rate, destination
+
 
 (
     ALERT_STATE_TYPE,
@@ -43,10 +64,10 @@ def get_alert_conversation_handler(alert_service: AlertService, user_repo: UserS
         keyboard = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("Acción / ETF", callback_data=f"alert_type:{ALERT_TYPE_PRICE}"),
-                    InlineKeyboardButton("Dólar / moneda", callback_data=f"alert_type:{ALERT_TYPE_FX}"),
+                    InlineKeyboardButton("📈 Acción / ETF", callback_data=f"alert_type:{ALERT_TYPE_PRICE}"),
+                    InlineKeyboardButton("💱 Dólar / moneda", callback_data=f"alert_type:{ALERT_TYPE_FX}"),
                 ],
-                [InlineKeyboardButton("Cancelar", callback_data="cancel_alert_conv")],
+                [InlineKeyboardButton("✕ Cancelar", callback_data="cancel_alert_conv")],
             ]
         )
         if update.callback_query:
@@ -64,7 +85,7 @@ def get_alert_conversation_handler(alert_service: AlertService, user_repo: UserS
         context.user_data["alert_type"] = alert_type
 
         cancel_kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Cancelar", callback_data="cancel_alert_conv")]]
+            [[InlineKeyboardButton("✕ Cancelar", callback_data="cancel_alert_conv")]]
         )
 
         if alert_type == ALERT_TYPE_PRICE:
@@ -78,19 +99,50 @@ def get_alert_conversation_handler(alert_service: AlertService, user_repo: UserS
     @restricted
     async def receive_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         symbol = update.effective_message.text.upper().strip()
+        alert_type = context.user_data["alert_type"]
+        try:
+            current_value, value_label = await get_current_alert_value(alert_service, alert_type, symbol)
+        except ValueError as error:
+            await update.effective_message.reply_text(
+                f"⚠️ {error}\n\nEscribe el símbolo o par nuevamente.",
+                parse_mode="HTML",
+            )
+            return ALERT_STATE_SYMBOL
+        except WallbitApiException as error:
+            logger.warning("No se pudo consultar la cotización de alerta %s: %s", symbol, error)
+            await update.effective_message.reply_text(
+                f"⚠️ {error.user_message}\n\nEscribe otro símbolo o toca Cancelar.",
+                parse_mode="HTML",
+            )
+            return ALERT_STATE_SYMBOL
+        except Exception:
+            logger.exception("Error consultando la cotización de alerta %s", symbol)
+            await update.effective_message.reply_text(
+                "⚠️ No pude consultar el valor actual. Inténtalo nuevamente o toca Cancelar.",
+            )
+            return ALERT_STATE_SYMBOL
+
+        if alert_type == ALERT_TYPE_FX:
+            source, destination = parse_fx_pair(symbol)
+            symbol = f"{source}/{destination}"
+            current_text = f"1 {source} = <b>{current_value:,.2f} {destination}</b>"
+        else:
+            current_text = f"<b>${current_value:,.2f} {value_label}</b>"
+
         context.user_data["alert_symbol"] = symbol
+        context.user_data["alert_current_value"] = current_value
 
         keyboard = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("Cuando suba a", callback_data=f"alert_op:{OPERATOR_GTE}"),
-                    InlineKeyboardButton("Cuando baje a", callback_data=f"alert_op:{OPERATOR_LTE}"),
+                    InlineKeyboardButton("📈 Cuando suba a", callback_data=f"alert_op:{OPERATOR_GTE}"),
+                    InlineKeyboardButton("📉 Cuando baje a", callback_data=f"alert_op:{OPERATOR_LTE}"),
                 ],
-                [InlineKeyboardButton("Cancelar", callback_data="cancel_alert_conv")],
+                [InlineKeyboardButton("✕ Cancelar", callback_data="cancel_alert_conv")],
             ]
         )
         await update.effective_message.reply_text(
-            f"<b>{symbol}</b>\n\n¿Te aviso si sube o si baja?",
+            f"<b>{symbol}</b>\nValor actual: {current_text}\n\n¿Te aviso si sube o si baja?",
             reply_markup=keyboard,
             parse_mode="HTML",
         )
@@ -104,12 +156,18 @@ def get_alert_conversation_handler(alert_service: AlertService, user_repo: UserS
         context.user_data["alert_operator"] = op
 
         cancel_kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Cancelar", callback_data="cancel_alert_conv")]]
+            [[InlineKeyboardButton("✕ Cancelar", callback_data="cancel_alert_conv")]]
         )
         direction = "suba a" if op == OPERATOR_GTE else "baje a"
+        current_value = context.user_data["alert_current_value"]
+        symbol = context.user_data["alert_symbol"]
+        current_text = f"${current_value:,.2f}"
+        if context.user_data.get("alert_type") == ALERT_TYPE_FX:
+            source, destination = parse_fx_pair(symbol)
+            current_text = f"1 {source} = {current_value:,.2f} {destination}"
         await query.edit_message_text(
-            f"Te aviso si <b>{context.user_data['alert_symbol']}</b> {direction}…\n\n"
-            "Escribe el precio, por ejemplo <b>500</b>.",
+            f"<b>{symbol}</b> · valor actual: <b>{current_text}</b>\n\n"
+            f"Te aviso si {direction}.\nEscribe el valor objetivo, por ejemplo <b>500</b>.",
             reply_markup=cancel_kb,
             parse_mode="HTML",
         )
@@ -137,8 +195,8 @@ def get_alert_conversation_handler(alert_service: AlertService, user_repo: UserS
         keyboard = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("Activar", callback_data="alert_confirm:yes"),
-                    InlineKeyboardButton("Cancelar", callback_data="cancel_alert_conv"),
+                    InlineKeyboardButton("✅ Activar alerta", callback_data="alert_confirm:yes"),
+                    InlineKeyboardButton("✕ Cancelar", callback_data="cancel_alert_conv"),
                 ]
             ]
         )

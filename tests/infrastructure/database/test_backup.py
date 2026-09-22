@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.core.config import settings
-from app.infrastructure.database.backup import create_sqlite_backup, get_sqlite_path
+from app.infrastructure.database.backup import create_sqlite_backup, get_sqlite_path, verify_sqlite_backup
 
 
 def test_get_sqlite_path(monkeypatch):
@@ -50,6 +50,15 @@ def test_create_sqlite_backup_and_rotation(tmp_path, monkeypatch):
     row = cursor.fetchone()
     assert row[0] == "Alice"
     b_conn.close()
+    verify_sqlite_backup(b3)
+
+
+def test_verify_sqlite_backup_rejects_invalid_file(tmp_path):
+    corrupted_file = tmp_path / "corrupted.db"
+    corrupted_file.write_text("esto no es SQLite")
+
+    with pytest.raises(RuntimeError, match="No se pudo abrir"):
+        verify_sqlite_backup(corrupted_file)
 
 
 def test_backup_fails_if_db_missing(tmp_path, monkeypatch):

@@ -27,9 +27,9 @@ def build_history_page(items, page: int, total_pages: int) -> tuple[str, InlineK
     # Pagination buttons
     nav_buttons = []
     if page > 1:
-        nav_buttons.append(InlineKeyboardButton("Anterior", callback_data=f"history_page:{page - 1}"))
+        nav_buttons.append(InlineKeyboardButton("⬅️ Anterior", callback_data=f"history_page:{page - 1}"))
     if page < total_pages:
-        nav_buttons.append(InlineKeyboardButton("Siguiente", callback_data=f"history_page:{page + 1}"))
+        nav_buttons.append(InlineKeyboardButton("Siguiente ➡️", callback_data=f"history_page:{page + 1}"))
 
     keyboard_rows = []
     if nav_buttons:

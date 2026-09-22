@@ -19,7 +19,7 @@ Services
         ↓
 Repositories / External Clients
         ↓
-SQLite / Wallbit / Wallsync
+SQLite / Wallbit / Wallsync / Telegram outbox
 ```
 
 ## 2. Estructura
@@ -51,6 +51,10 @@ wallbit-bot/
 │   │   ├── wallsync/
 │   │   │   ├── provider.py
 │   │   │   └── client.py
+│   │   │
+│   │   ├── notifications/
+│   │   │   ├── models.py
+│   │   │   └── repository.py
 │   │   │
 │   │   └── scheduler/
 │   │       └── scheduler.py
@@ -159,7 +163,9 @@ Responsable de:
 - SQLAlchemy engine;
 - sesiones;
 - Base;
-- SQLite.
+- SQLite;
+- migraciones aditivas registradas en `schema_migrations`;
+- outbox persistente para notificaciones Telegram.
 
 PostgreSQL puede soportarse opcionalmente si simplifica deployment, pero no es requisito del producto.
 
@@ -410,7 +416,7 @@ Solo guarda lo necesario para lógica local.
 TELEGRAM_ALLOWED_USER_ID=
 ```
 
-Todo mensaje o callback de otro Telegram User ID debe rechazarse.
+Todo mensaje o callback de otro Telegram User ID debe rechazarse. La instancia solo atiende chats privados, incluso para el usuario autorizado.
 
 ### Credenciales
 

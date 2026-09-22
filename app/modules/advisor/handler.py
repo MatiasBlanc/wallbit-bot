@@ -1,6 +1,6 @@
 """Interfaz Telegram del advisor opcional."""
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
 from telegram.ext import ContextTypes
 
 from app.core.logging import get_logger
@@ -25,11 +25,13 @@ def get_advisor_keyboard() -> InlineKeyboardMarkup:
     """Opciones de análisis sin acciones financieras."""
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Resumen de cartera", callback_data="advisor:summary")],
-            [InlineKeyboardButton("Riesgo", callback_data="advisor:risk")],
-            [InlineKeyboardButton("Concentración", callback_data="advisor:concentration")],
-            [InlineKeyboardButton("Explicar rendimiento", callback_data="advisor:performance")],
-            [InlineKeyboardButton("Cerrar", callback_data="advisor:close")],
+            [
+                InlineKeyboardButton("📋 Resumen", callback_data="advisor:summary"),
+                InlineKeyboardButton("⚠️ Riesgo", callback_data="advisor:risk"),
+            ],
+            [InlineKeyboardButton("🎯 Concentración", callback_data="advisor:concentration")],
+            [InlineKeyboardButton("📈 Rendimiento", callback_data="advisor:performance")],
+            [InlineKeyboardButton("✅ Cerrar", callback_data="advisor:close")],
         ]
     )
 
@@ -61,12 +63,17 @@ async def _run_analysis(
     prompt: str,
 ) -> None:
     user_id = update.effective_user.id
-    loading_target = update.callback_query or update.effective_message
-    if update.callback_query:
-        await update.callback_query.answer()
-        loading = await update.callback_query.message.reply_text(format_loading("Analizando tu cartera"))
+    query = update.callback_query
+    if query is not None:
+        await query.answer()
+        if not isinstance(query.message, Message):
+            raise ValueError("El callback no contiene un mensaje accesible.")
+        loading = await query.message.reply_text(format_loading("Analizando tu cartera"))
     else:
-        loading = await loading_target.reply_text(format_loading("Analizando tu cartera"))
+        message = update.effective_message
+        if message is None:
+            raise ValueError("El comando no contiene un mensaje accesible.")
+        loading = await message.reply_text(format_loading("Analizando tu cartera"))
     try:
         with get_db_session() as session:
             user = user_repo.get_or_create(session, user_id)

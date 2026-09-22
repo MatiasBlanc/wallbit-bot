@@ -347,6 +347,18 @@ class OrderService:
         """Devuelve órdenes marcadas como verification_required para revisión manual."""
         return self.order_repo.list_unverified_orders(session, user_id)
 
+    def list_pending_orders(self, session: Session, user_id: int) -> list[PendingOrder]:
+        """Devuelve compras propuestas que todavía esperan confirmación Telegram.
+
+        Args:
+            session: Sesión de lectura.
+            user_id: Propietario local de las órdenes.
+
+        Returns:
+            Intenciones pendientes y vigentes según la base local.
+        """
+        return self.order_repo.list_pending_orders(session, user_id)
+
     def reconcile_order(
         self,
         session: Session,

@@ -1,11 +1,18 @@
 """User settings ORM model."""
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.base import Base
+
+if TYPE_CHECKING:
+    from app.modules.alerts.models import Alert
+    from app.modules.dca.models import DCARule
+    from app.modules.history.models import LocalTransaction
+    from app.modules.orders.models import PendingOrder
 
 
 def utcnow() -> datetime:
@@ -15,17 +22,17 @@ def utcnow() -> datetime:
 class UserSettings(Base):
     __tablename__ = "user_settings"
 
-    id = Column(Integer, primary_key=True, index=True)
-    telegram_user_id = Column(BigInteger, unique=True, index=True, nullable=False)
-    default_currency = Column(String(10), default="CLP", nullable=False)
-    report_time = Column(String(5), default="09:00", nullable=False)
-    timezone = Column(String(50), default="America/Santiago", nullable=False)
-    alerts_enabled = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
-    last_daily_report = Column(String(10), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    telegram_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    default_currency: Mapped[str] = mapped_column(String(10), default="CLP")
+    report_time: Mapped[str] = mapped_column(String(5), default="09:00")
+    timezone: Mapped[str] = mapped_column(String(50), default="America/Santiago")
+    alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    last_daily_report: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
-    dca_rules = relationship("DCARule", back_populates="user", cascade="all, delete-orphan")
-    pending_orders = relationship("PendingOrder", back_populates="user", cascade="all, delete-orphan")
-    alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
-    transactions = relationship("LocalTransaction", back_populates="user", cascade="all, delete-orphan")
+    dca_rules: Mapped[list["DCARule"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    pending_orders: Mapped[list["PendingOrder"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    alerts: Mapped[list["Alert"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    transactions: Mapped[list["LocalTransaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")

@@ -319,6 +319,7 @@ async def test_skip_order_checks_owner_and_persists(multi_user, order_service, u
 
 
 async def test_dca_job_reuses_reads_and_isolates_accounts(multi_user, dca_service, user_repo, mock_wallbit_client):
+    from app.infrastructure.notifications.repository import NotificationOutboxRepository, dispatch_pending_notifications
     from app.modules.dca.jobs import run_dca_checker
     from app.modules.orders.models import PendingOrder
     for user_id in [101, 202]:
@@ -335,11 +336,14 @@ async def test_dca_job_reuses_reads_and_isolates_accounts(multi_user, dca_servic
         return [CheckingBalanceItem(currency="USD", balance=100)]
     mock_wallbit_client.get_checking_balance.side_effect = checking
     bot = AsyncMock()
-    await run_dca_checker(bot, dca_service)
+    notification_repo = NotificationOutboxRepository()
+    await run_dca_checker(bot, dca_service, notification_repo)
     assert seen == [101, 202]
     assert mock_wallbit_client.get_checking_balance.await_count == 2
     assert mock_wallbit_client.get_stocks_balance.await_count == 2
     assert mock_wallbit_client.get_asset.await_count == 2
+    assert bot.send_message.await_count == 0
+    await dispatch_pending_notifications(bot, notification_repo)
     assert bot.send_message.await_count == 10
     first_message = bot.send_message.call_args_list[0].kwargs["text"]
     assert "<b>Hoy toca comprar</b>" in first_message
@@ -354,6 +358,7 @@ async def test_dca_job_reuses_reads_and_isolates_accounts(multi_user, dca_servic
 
 
 async def test_alert_job_uses_each_accounts_quotes(multi_user, alert_service, user_repo, mock_wallbit_client):
+    from app.infrastructure.notifications.repository import NotificationOutboxRepository, dispatch_pending_notifications
     from app.infrastructure.wallbit.schemas.portfolio import AssetDetails
     from app.modules.alerts.jobs import run_alert_checker
     for user_id in [101, 202]:
@@ -366,7 +371,10 @@ async def test_alert_job_uses_each_accounts_quotes(multi_user, alert_service, us
         return AssetDetails(symbol=symbol, name=symbol, price=price)
     mock_wallbit_client.get_asset.side_effect = quote
     bot = AsyncMock()
-    await run_alert_checker(bot, alert_service)
+    notification_repo = NotificationOutboxRepository()
+    await run_alert_checker(bot, alert_service, notification_repo)
+    assert bot.send_message.await_count == 0
+    await dispatch_pending_notifications(bot, notification_repo)
     bot.send_message.assert_awaited_once()
     assert bot.send_message.call_args.kwargs["chat_id"] == 101
     multi_user.expire_all()
