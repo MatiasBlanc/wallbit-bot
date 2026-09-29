@@ -58,14 +58,7 @@ El bot usa **polling**, por lo que no necesita dominio, webhook ni puerto HTTP p
 
 ## Inicio rápido con Docker — recomendado
 
-### 1. Requisitos
-
-- Una cuenta de [Wallbit](https://wallbit.io) con acceso a su API pública.
-- Un bot de Telegram creado con [@BotFather](https://t.me/BotFather).
-- Tu ID numérico de Telegram.
-- Docker con Docker Compose.
-
-### 2. Clona y configura
+Necesitas Docker Compose, una [cuenta de Wallbit](https://wallbit.io) con acceso a la API y un [bot de Telegram](https://t.me/BotFather) (`/newbot`). Consulta tu ID numérico de Telegram, por ejemplo con `@userinfobot`.
 
 ```bash
 git clone https://github.com/MatiasBlanc/wallbit-bot.git
@@ -74,25 +67,10 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Edita `.env` y completa como mínimo:
-
-```env
-TELEGRAM_BOT_TOKEN=token_entregado_por_botfather
-TELEGRAM_ALLOWED_USER_ID=123456789
-WALLBIT_API_KEY=tu_api_key_de_wallbit
-
-# Mantén este valor durante todas las pruebas iniciales.
-TRADING_ENABLED=false
-```
-
-> [!WARNING]
-> No pegues secretos en issues, capturas, mensajes de Telegram ni archivos versionados. `.env` ya está ignorado por Git.
-
-### 3. Construye y valida
+Abre `.env` y completa **solo** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_ID` y `WALLBIT_API_KEY`. Deja `TRADING_ENABLED=false`: no enviará compras reales. No publiques `.env` ni compartas sus valores.
 
 ```bash
-docker compose build
-docker compose run --rm wallbit-bot python -m app doctor
+docker compose run --build --rm wallbit-bot python -m app doctor
 ```
 
 Una instalación correcta muestra:
@@ -108,7 +86,7 @@ Trading         DISABLED
 
 `doctor` valida el token con Telegram, realiza una consulta de lectura a Wallbit y comprueba SQLite y APScheduler. Nunca imprime tus secretos.
 
-### 4. Inicia el bot
+### Inicia el bot
 
 ```bash
 docker compose up -d
@@ -121,7 +99,9 @@ Abre tu bot en Telegram y envía:
 /start
 ```
 
-Docker Compose conserva la base en el volumen `wallbit-data` y reinicia el contenedor automáticamente salvo que lo detengas explícitamente.
+Docker Compose conserva la base en el volumen `wallbit-data` y reinicia el contenedor automáticamente salvo que lo detengas explícitamente. Para detenerlo: `docker compose down` (sin `-v`, que borraría el volumen).
+
+**¿Sin Docker?** Consulta [Instalación sin Docker](#instalación-sin-docker). Las opciones adicionales están en [Variables de entorno](#variables-de-entorno) y los pasos para un servidor 24/7 en [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
